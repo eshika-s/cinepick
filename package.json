@@ -1,12 +1,16 @@
 {
-    "name": "ymovie",
+    "name": "cinepick",
     "version": "0.1.0",
     "private": true,
     "scripts": {
         "dev": "vite",
+        "dev:full": "concurrently \"npm run dev\" \"npm run dev:backend\"",
+        "dev:backend": "cd backend && npm run dev",
+        "start": "vite preview --port 3000",
+        "start:all": "start-full.bat",
+        "start:quick": "start-quick.bat",
         "build": "tsc && vite build",
         "preview": "vite preview",
-        "start": "vite preview --port 3000",
         "type-check": "tsc --noEmit",
         "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
     },
@@ -25,6 +29,7 @@
         "@types/react": "^18.3.18",
         "@types/react-dom": "^18.3.5",
         "@vitejs/plugin-react": "^4.0.3",
+        "concurrently": "^9.2.1",
         "eslint": "^8.57.0",
         "eslint-plugin-react": "^7.34.1",
         "eslint-plugin-react-hooks": "^4.6.0",

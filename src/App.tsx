@@ -1,18 +1,97 @@
-import { useState } from 'react'
-import { Container, Typography, CircularProgress, Box } from '@mui/material'
+import { useState, useEffect } from 'react'
+import { Container, Typography, CircularProgress, Box, Tabs, Tab, Button } from '@mui/material'
 import { Movie } from './types/movie'
 import useMovies, { MovieCategory } from './hooks/useMovies'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import Navbar from './components/Navbar'
 import SearchBar from './components/SearchBar'
 import GenreFilter from './components/GenreFilter'
 import MovieCard from './components/MovieCard'
 import MovieDetails from './components/MovieDetails'
 import Footer from './components/Footer'
 import MovieSection from './components/MovieSection'
+import MoodPicker from './components/MoodPicker'
+import MovieRoulette from './components/MovieRoulette'
+import MovieNightPlanner from './components/MovieNightPlanner'
+import AuthModal from './components/AuthModal'
+import UserMenu from './components/UserMenu'
+import apiService from './services/api'
 
-export default function App() {
+interface TabPanelProps {
+  children?: React.ReactNode
+  index: number
+  value: number
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`movie-tabpanel-${index}`}
+      aria-labelledby={`movie-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  )
+}
+
+function AppContent() {
+  const { state, loginWithToken, refreshUser } = useAuth()
+  const [tabValue, setTabValue] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedGenre, setSelectedGenre] = useState('all')
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
+  const [selectedMood, setSelectedMood] = useState('')
+  const [authModalOpen, setAuthModalOpen] = useState(false)
+
+  // Get mood keywords for search
+  const moodData = [
+    { id: 'happy', name: 'Happy & Uplifting', searchTerms: ['comedy', 'feel good comedy', 'family comedy'] },
+    { id: 'thriller', name: 'Edge of Your Seat', searchTerms: ['thriller', 'suspense thriller', 'psychological thriller'] },
+    { id: 'cozy', name: 'Cozy & Relaxing', searchTerms: ['drama', 'romance', 'heartwarming drama'] },
+    { id: 'mindbending', name: 'Mind-Bending', searchTerms: ['sci-fi', 'science fiction', 'psychological thriller'] },
+    { id: 'romantic', name: 'Romantic & Heartwarming', searchTerms: ['romance', 'love story', 'romantic comedy'] },
+    { id: 'epic', name: 'Epic Adventures', searchTerms: ['adventure', 'action adventure', 'fantasy adventure'] }
+  ]
+
+  // Handle OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const token = urlParams.get('token')
+    
+    if (token) {
+      localStorage.setItem('token', token)
+      
+      const handleOAuthLogin = async () => {
+        try {
+          const userResponse = await apiService.getCurrentUser()
+          loginWithToken(userResponse.user, token)
+          window.history.replaceState({}, document.title, window.location.pathname)
+        } catch (error) {
+          console.error('OAuth login error:', error)
+          localStorage.removeItem('token')
+        }
+      }
+      
+      handleOAuthLogin()
+    }
+  }, [loginWithToken])
+
+  // Handle auth modal trigger
+  useEffect(() => {
+    const handleOpenAuthModal = () => {
+      setAuthModalOpen(true)
+    }
+
+    window.addEventListener('open-auth-modal', handleOpenAuthModal)
+    return () => {
+      window.removeEventListener('open-auth-modal', handleOpenAuthModal)
+    }
+  }, [])
 
   // Category sections
   const { movies: popularMovies, loading: popularLoading } = useMovies({ category: 'popular' })
@@ -30,11 +109,84 @@ export default function App() {
     setSearchQuery(query)
   }
 
+  const handleMoodSelect = async (mood: string, description: string) => {
+    setSelectedMood(mood)
+    
+    if (state.isAuthenticated && mood) {
+      try {
+        const currentPrefs = state.user?.preferences?.moodPreferences || []
+        const existingPref = currentPrefs.find(p => p.mood === mood)
+        
+        let updatedPrefs
+        if (existingPref) {
+          updatedPrefs = currentPrefs.map(p => 
+            p.mood === mood 
+              ? { ...p, weight: Math.min(p.weight + 0.1, 5), lastSelected: new Date().toISOString() }
+              : p
+          )
+        } else {
+          updatedPrefs = [...currentPrefs, { mood, weight: 1, lastSelected: new Date().toISOString() }]
+        }
+        
+        await apiService.updatePreferences({ moodPreferences: updatedPrefs })
+      } catch (error) {
+        console.error('Failed to update mood preference:', error)
+      }
+    }
+
+    if (mood) {
+      const selectedMoodData = moodData.find(m => m.id === mood)
+      if (selectedMoodData) {
+        const searchQuery = selectedMoodData.searchTerms[0]
+        setSearchQuery(searchQuery)
+        setTabValue(0)
+      }
+    } else {
+      setSearchQuery('')
+      setSelectedMood('')
+    }
+  }
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue)
+  }
+
+  const handleMovieLike = async (movieId: string, liked: boolean) => {
+    if (state.isAuthenticated) {
+      try {
+        await apiService.likeMovie(movieId, liked)
+      } catch (error) {
+        console.error('Failed to like/dislike movie:', error)
+      }
+    } else {
+      setAuthModalOpen(true)
+    }
+  }
+
+  const handleWatchlistToggle = async (movieId: string, add: boolean) => {
+    console.log('handleWatchlistToggle called:', { movieId, add, isAuthenticated: state.isAuthenticated })
+    
+    if (state.isAuthenticated) {
+      try {
+        console.log('Updating watchlist on server...')
+        await apiService.toggleWatchlist(movieId, add)
+        console.log('Watchlist updated successfully, refreshing user data...')
+        await refreshUser()
+        console.log('User data refreshed')
+      } catch (error) {
+        console.error('Failed to update watchlist:', error)
+      }
+    } else {
+      console.log('User not authenticated, showing auth modal')
+      setAuthModalOpen(true)
+    }
+  }
+
   const showSearchResults = searchQuery || selectedGenre !== 'all'
 
   if (error) return (
-    <Box display="flex" justifyContent="center" mt={4}>
-      <Typography variant="h6" color="error">
+    <Box display="flex" justifyContent="center" mt={4} className="fade-in">
+      <Typography variant="h6" color="error" sx={{ fontWeight: 600 }}>
         Error loading movies: {error.message}
       </Typography>
     </Box>
@@ -45,84 +197,251 @@ export default function App() {
       display: 'flex',
       flexDirection: 'column',
       minHeight: '100vh',
-      backgroundColor: 'background.default'
+      backgroundColor: '#141414',
     }}>
-      <Container maxWidth="xl" sx={{ 
-        py: 4,
-        flex: 1,
-        pb: 10 
-      }}>
-        <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 'bold' }}>
-          YMOVIES
-        </Typography>
-        
-        <Box mb={4} display="flex" gap={2} flexDirection={{ xs: 'column', sm: 'row' }}>
-          <SearchBar onSearch={handleSearch} />
-          <GenreFilter
-            selectedGenre={selectedGenre}
-            onGenreChange={setSelectedGenre}
-          />
-        </Box>
-
-        {showSearchResults ? (
-          // Search/Filter Results Grid
-          loading ? (
-            <Box display="flex" justifyContent="center" mt={4}>
-              <CircularProgress size={60} />
-            </Box>
-          ) : (
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: {
-                  xs: '1fr',
-                  sm: 'repeat(2, 1fr)',
-                  md: 'repeat(3, 1fr)',
-                  lg: 'repeat(5, 1fr)'
-                },
-                gap: 3
-              }}
-            >
-              {movies.map(movie => (
-                <MovieCard 
-                  key={movie.id}
-                  movie={movie} 
-                  onClick={() => setSelectedMovie(movie)}
+      <Navbar onSearch={handleSearch} />
+      
+      <Box sx={{ mt: 8, flex: 1 }}>
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          {/* Hero Section */}
+          {!showSearchResults && tabValue === 0 && (
+            <Box sx={{ 
+              textAlign: 'center', 
+              mb: 6,
+              py: { xs: 4, md: 8 },
+              background: 'linear-gradient(135deg, rgba(229, 9, 20, 0.1) 0%, rgba(0, 0, 0, 0.8) 100%)',
+              borderRadius: 2,
+              border: '1px solid #333',
+            }}>
+              <Typography 
+                variant="h2" 
+                component="h1" 
+                sx={{ 
+                  fontWeight: 700,
+                  fontSize: { xs: '2.5rem', md: '3.5rem' },
+                  color: '#ffffff',
+                  mb: 2,
+                  background: 'linear-gradient(45deg, #e50914, #ff6b6b)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                CINEPICK
+              </Typography>
+　
+　
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  color: '#b3b3b3',
+                  mb: 4,
+                  maxWidth: '800px',
+                  mx: 'auto',
+                  lineHeight: 1.6,
+                }}
+              >
+                Discover your next favorite movie with our unique recommendation features
+                {state.isAuthenticated && ' (Personalized for you!)'}
+              </Typography>
+　　 　 　 　
+              <Box 
+                display="flex" 
+                gap={2} 
+                flexDirection={{ xs: 'column', sm: 'row' }}
+                justifyContent="center"
+                alignItems="center"
+                maxWidth="600px"
+                mx="auto"
+              >
+                <SearchBar onSearch={handleSearch} />
+                <GenreFilter
+                  selectedGenre={selectedGenre}
+                  onGenreChange={setSelectedGenre}
                 />
-              ))}
+              </Box>
             </Box>
-          )
-        ) : (
-          // Category Sections
-          <>
-            <MovieSection 
-              title="Popular Now" 
-              movies={popularMovies} 
-            />
-            <MovieSection 
-              title="Top Rated" 
-              movies={topRatedMovies} 
-            />
-            <MovieSection 
-              title="Now in Cinemas" 
-              movies={nowPlayingMovies} 
-            />
-            <MovieSection 
-              title="Trending This Week" 
-              movies={trendingMovies} 
-            />
-          </>
-        )}
+          )}
 
-        <MovieDetails 
-          movie={selectedMovie} 
-          onClose={() => setSelectedMovie(null)} 
-        />
-      </Container>
+          {/* Search Results Header */}
+          {showSearchResults && (
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h4" sx={{ color: '#ffffff', mb: 2 }}>
+                {searchQuery ? `Search Results for "${searchQuery}"` : `${selectedGenre} Movies`}
+              </Typography>
+              <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                <SearchBar onSearch={handleSearch} />
+                <GenreFilter
+                  selectedGenre={selectedGenre}
+                  onGenreChange={setSelectedGenre}
+                />
+                {selectedMood && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#b3b3b3' }}>
+                      Mood: <strong>{moodData.find(m => m.id === selectedMood)?.name || selectedMood}</strong>
+                    </Typography>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setSelectedMood('')
+                        setSearchQuery('')
+                        setTabValue(1)
+                      }}
+                      sx={{ color: '#e50914' }}
+                    >
+                      Back to Mood Picker
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+              {movies.length > 0 ? (
+                <MovieSection
+                  title={searchQuery ? `Results for "${searchQuery}"` : `${selectedGenre} Movies`}
+                  movies={movies}
+                  loading={loading}
+                  onMovieSelect={setSelectedMovie}
+                  onLike={handleMovieLike}
+                  onWatchlistToggle={handleWatchlistToggle}
+                  userWatchlist={state.user?.preferences?.watchlist || []}
+                  userLikedMovies={state.user?.preferences?.likedMovies || []}
+                />
+              ) : (
+                <Box textAlign="center" py={8}>
+                  <Typography variant="h6" sx={{ color: '#b3b3b3' }}>
+                    No movies found. Try a different search or genre.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
 
-      <Box sx={{ mt: 4 }}>
-        <Footer />
+          {/* Navigation Tabs and Tab Content - Only show when not searching */}
+          {!showSearchResults && (
+            <Box>
+              <Box sx={{ 
+                borderBottom: '1px solid #333', 
+                mb: 4 
+              }}>
+                <Tabs 
+                  value={tabValue} 
+                  onChange={handleTabChange}
+                  variant="scrollable"
+                  scrollButtons="auto"
+                  sx={{
+                    '& .MuiTabs-indicator': {
+                      backgroundColor: '#e50914',
+                      height: 3,
+                    },
+                  }}
+                >
+                  <Tab label="🎬 Browse Movies" />
+                  <Tab label="😊 Mood Picker" />
+                  <Tab label="🎯 Movie Discovery" />
+                  <Tab label="🗓️ Movie Night Planner" />
+                </Tabs>
+              </Box>
+
+              <TabPanel value={tabValue} index={0}>
+                <MovieSection
+                  title="Trending Now"
+                  movies={trendingMovies}
+                  loading={trendingLoading}
+                  onMovieSelect={setSelectedMovie}
+                  onLike={handleMovieLike}
+                  onWatchlistToggle={handleWatchlistToggle}
+                  userWatchlist={state.user?.preferences?.watchlist || []}
+                  userLikedMovies={state.user?.preferences?.likedMovies || []}
+                />
+                
+                <MovieSection
+                  title="Popular Movies"
+                  movies={popularMovies}
+                  loading={popularLoading}
+                  onMovieSelect={setSelectedMovie}
+                  onLike={handleMovieLike}
+                  onWatchlistToggle={handleWatchlistToggle}
+                  userWatchlist={state.user?.preferences?.watchlist || []}
+                  userLikedMovies={state.user?.preferences?.likedMovies || []}
+                />
+                
+                <MovieSection
+                  title="Top Rated"
+                  movies={topRatedMovies}
+                  loading={topRatedLoading}
+                  onMovieSelect={setSelectedMovie}
+                  onLike={handleMovieLike}
+                  onWatchlistToggle={handleWatchlistToggle}
+                  userWatchlist={state.user?.preferences?.watchlist || []}
+                  userLikedMovies={state.user?.preferences?.likedMovies || []}
+                />
+                
+                <MovieSection
+                  title="Now Playing"
+                  movies={nowPlayingMovies}
+                  loading={nowPlayingLoading}
+                  onMovieSelect={setSelectedMovie}
+                  onLike={handleMovieLike}
+                  onWatchlistToggle={handleWatchlistToggle}
+                  userWatchlist={state.user?.preferences?.watchlist || []}
+                  userLikedMovies={state.user?.preferences?.likedMovies || []}
+                />
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={1}>
+                <MoodPicker 
+                  onMoodSelect={handleMoodSelect} 
+                  selectedMood={selectedMood}
+                />
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={2}>
+                <MovieRoulette
+                  movies={[...trendingMovies, ...popularMovies, ...topRatedMovies, ...nowPlayingMovies]}
+                  onMovieSelect={setSelectedMovie}
+                  onLike={handleMovieLike}
+                  onWatchlistToggle={handleWatchlistToggle}
+                  userWatchlist={state.user?.preferences?.watchlist || []}
+                  userLikedMovies={state.user?.preferences?.likedMovies || []}
+                  isAuthenticated={state.isAuthenticated}
+                />
+              </TabPanel>
+
+              <TabPanel value={tabValue} index={3}>
+                <MovieNightPlanner
+                  movies={movies}
+                  requireAuth={!state.isAuthenticated}
+                  onAuthRequired={() => setAuthModalOpen(true)}
+                />
+              </TabPanel>
+            </Box>
+          )}
+        </Container>
       </Box>
+
+      {/* Movie Details Modal */}
+      {selectedMovie && (
+        <MovieDetails
+          movie={selectedMovie}
+          onClose={() => setSelectedMovie(null)}
+        />
+      )}
+
+      {/* Auth Modal */}
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+      />
+
+      {/* Footer */}
+      <Footer />
     </Box>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   )
 }
