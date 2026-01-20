@@ -6,4 +6,11 @@ export default defineConfig({
   server: {
     port: 3005,
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+  },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'production'),
+  },
 });

@@ -37,12 +37,12 @@ import {
   Notifications,
   DarkMode,
   Language,
+  Security,
   Delete,
   Edit,
   Save,
   Cancel,
-  Privacy,
-  Security,
+  Lock,
   Help,
   Logout,
   Movie,
@@ -395,7 +395,7 @@ export default function Settings() {
           {/* Account Actions */}
           <SettingsSection title="Account Actions">
             <List sx={{ bgcolor: 'transparent' }}>
-              <ListItem button>
+              <ListItem component="button">
                 <Security sx={{ mr: 2, color: '#b3b3b3' }} />
                 <ListItemText
                   primary="Change Password"
@@ -405,8 +405,8 @@ export default function Settings() {
                 />
               </ListItem>
 
-              <ListItem button>
-                <Privacy sx={{ mr: 2, color: '#b3b3b3' }} />
+              <ListItem component="button">
+                <Lock sx={{ mr: 2, color: '#b3b3b3' }} />
                 <ListItemText
                   primary="Privacy Settings"
                   secondary="Manage your privacy and data preferences"
@@ -415,7 +415,7 @@ export default function Settings() {
                 />
               </ListItem>
 
-              <ListItem button onClick={handleDeleteAccount}>
+              <ListItem component="button" onClick={handleDeleteAccount}>
                 <Delete sx={{ mr: 2, color: '#e50914' }} />
                 <ListItemText
                   primary="Delete Account"
@@ -427,7 +427,7 @@ export default function Settings() {
 
               <Divider sx={{ my: 2, borderColor: '#333' }} />
 
-              <ListItem button onClick={logout}>
+              <ListItem component="button" onClick={logout}>
                 <Logout sx={{ mr: 2, color: '#b3b3b3' }} />
                 <ListItemText
                   primary="Sign Out"
@@ -489,7 +489,7 @@ export default function Settings() {
               Help & Support
             </Typography>
             <List sx={{ bgcolor: 'transparent' }}>
-              <ListItem button>
+              <ListItem component="button">
                 <Help sx={{ mr: 2, color: '#b3b3b3' }} />
                 <ListItemText
                   primary="Help Center"
@@ -498,7 +498,7 @@ export default function Settings() {
                   secondaryTypographyProps={{ color: '#b3b3b3' }}
                 />
               </ListItem>
-              <ListItem button>
+              <ListItem component="button">
                 <Email sx={{ mr: 2, color: '#b3b3b3' }} />
                 <ListItemText
                   primary="Contact Support"
