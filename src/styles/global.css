@@ -12,7 +12,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #141414;
+  background-color: #0A0A0F;
   color: #ffffff;
   overflow-x: hidden;
 }
@@ -104,11 +104,11 @@ body {
 
   0%,
   100% {
-    box-shadow: 0 0 5px rgba(229, 9, 20, 0.5);
+    box-shadow: 0 0 5px rgba(255, 51, 102, 0.5);
   }
 
   50% {
-    box-shadow: 0 0 20px rgba(229, 9, 20, 0.8), 0 0 30px rgba(229, 9, 20, 0.6);
+    box-shadow: 0 0 20px rgba(255, 51, 102, 0.8), 0 0 30px rgba(0, 229, 255, 0.5);
   }
 }
 
@@ -139,33 +139,34 @@ body {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f1f1f;
+  background: rgba(10, 10, 15, 0.8);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
   transition: background 0.3s ease;
+  border: 2px solid rgba(10, 10, 15, 0.8);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: rgba(255, 51, 102, 0.5);
 }
 
 /* Selection styling */
 ::selection {
-  background: rgba(229, 9, 20, 0.3);
+  background: rgba(255, 51, 102, 0.4);
   color: #ffffff;
 }
 
 ::-moz-selection {
-  background: rgba(229, 9, 20, 0.3);
+  background: rgba(255, 51, 102, 0.4);
   color: #ffffff;
 }
 
@@ -174,7 +175,7 @@ button:focus,
 input:focus,
 textarea:focus,
 select:focus {
-  outline: 2px solid #e50914;
+  outline: 2px solid #00E5FF;
   outline-offset: 2px;
 }
 
@@ -201,24 +202,24 @@ select:focus {
 }
 
 .hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 20px rgba(229, 9, 20, 0.4);
+  box-shadow: 0 0 25px rgba(255, 51, 102, 0.4);
 }
 
 /* Text gradients */
 .text-gradient-red {
-  background: linear-gradient(45deg, #e50914, #ff6b6b);
+  background: linear-gradient(135deg, #FF3366 0%, #FF6B8B 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-blue {
-  background: linear-gradient(45deg, #2196f3, #64b5f6);
+  background: linear-gradient(135deg, #00E5FF 0%, #33EAFF 100%);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -226,31 +227,32 @@ select:focus {
 
 /* Card hover effects */
 .card-hover {
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .card-hover:hover {
-  transform: scale(1.05);
-  border-color: #e50914;
-  box-shadow: 0 8px 25px rgba(229, 9, 20, 0.3);
+  transform: translateY(-5px);
+  border-color: rgba(255, 51, 102, 0.5);
+  box-shadow: 0 12px 30px -10px rgba(255, 51, 102, 0.3), 0 4px 10px -5px rgba(0, 229, 255, 0.2);
 }
 
 /* Button effects */
 .btn-netflix {
-  background: #e50914;
+  background: linear-gradient(135deg, #FF3366 0%, #FF6B8B 100%);
   color: white;
   border: none;
-  padding: 8px 24px;
-  border-radius: 4px;
-  font-weight: 500;
+  padding: 10px 28px;
+  border-radius: 12px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 14px 0 rgba(255, 51, 102, 0.39);
 }
 
 .btn-netflix:hover {
-  background: #b20710;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(229, 9, 20, 0.4);
+  background: linear-gradient(135deg, #E60039 0%, #FF3366 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(255, 51, 102, 0.5);
 }
 
 .btn-netflix:active {

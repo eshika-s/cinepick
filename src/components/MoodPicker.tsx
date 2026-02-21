@@ -1,18 +1,18 @@
 import { useState } from 'react'
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Card, 
-  CardContent, 
-  Chip, 
+import {
+  Box,
+  Typography,
+  Button,
+  Card,
+  CardContent,
+  Chip,
   Grid,
   IconButton,
   Tooltip
 } from '@mui/material'
-import { 
-  Movie as MovieIcon, 
-  Theaters, 
+import {
+  Movie as MovieIcon,
+  Theaters,
   SentimentVerySatisfied,
   LocalFireDepartment,
   Nightlight,
@@ -82,8 +82,8 @@ export default function MoodPicker({ onMoodSelect, selectedMood }: MoodPickerPro
 
   return (
     <Box className="fade-in">
-      <Typography variant="h4" component="h2" sx={{ 
-        mb: 3, 
+      <Typography variant="h4" component="h2" sx={{
+        mb: 3,
         fontWeight: 700,
         textAlign: 'center',
         color: '#ffffff',
@@ -91,11 +91,11 @@ export default function MoodPicker({ onMoodSelect, selectedMood }: MoodPickerPro
       }}>
         How are you feeling today?
       </Typography>
-      
-      <Typography variant="body1" sx={{ 
-        mb: 4, 
+
+      <Typography variant="body1" sx={{
+        mb: 4,
         textAlign: 'center',
-        color: '#b3b3b3',
+        color: '#B8B8CD',
         maxWidth: '600px',
         mx: 'auto',
         fontSize: '1.1rem',
@@ -114,10 +114,12 @@ export default function MoodPicker({ onMoodSelect, selectedMood }: MoodPickerPro
               sx={{
                 cursor: 'pointer',
                 border: selectedMood === mood.id ? '2px solid' : '1px solid',
-                borderColor: selectedMood === mood.id ? mood.color : '#333',
-                background: selectedMood === mood.id ? `${mood.color}15` : '#1f1f1f',
+                borderColor: selectedMood === mood.id ? mood.color : 'rgba(255, 255, 255, 0.05)',
+                background: selectedMood === mood.id ? `${mood.color}15` : 'rgba(21, 21, 30, 0.6)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: 4,
                 transform: hoveredMood === mood.id ? 'translateY(-4px) scale(1.02)' : 'translateY(0)',
-                transition: 'all 0.3s ease',
+                transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -128,9 +130,9 @@ export default function MoodPicker({ onMoodSelect, selectedMood }: MoodPickerPro
               }}
             >
               <CardContent sx={{ flex: 1, textAlign: 'center', py: 3 }}>
-                <Box sx={{ 
-                  fontSize: '3rem', 
-                  color: mood.color, 
+                <Box sx={{
+                  fontSize: '3rem',
+                  color: mood.color,
                   mb: 2,
                   display: 'flex',
                   justifyContent: 'center',
@@ -138,29 +140,29 @@ export default function MoodPicker({ onMoodSelect, selectedMood }: MoodPickerPro
                 }}>
                   {mood.icon}
                 </Box>
-                
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 600, 
-                  mb: 1, 
+
+                <Typography variant="h6" sx={{
+                  fontWeight: 600,
+                  mb: 1,
                   color: '#ffffff',
                   fontSize: '1.1rem'
                 }}>
                   {mood.name}
                 </Typography>
-                
-                <Typography variant="body2" sx={{ 
-                  color: '#b3b3b3', 
+
+                <Typography variant="body2" sx={{
+                  color: '#B8B8CD',
                   lineHeight: 1.4,
                   fontSize: '0.9rem'
                 }}>
                   {mood.description}
                 </Typography>
 
-                <Box sx={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap', 
-                  gap: 0.5, 
-                  mt: 2, 
+                <Box sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 0.5,
+                  mt: 2,
                   justifyContent: 'center'
                 }}>
                   {mood.keywords.map((keyword, index) => (

@@ -1,5 +1,6 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
+import { Op } from 'sequelize'
 import { protect, AuthRequest } from '../middleware/auth'
 import { MovieNight } from '../models/MovieNight'
 import { User } from '../models/User'
@@ -24,25 +25,16 @@ router.post('/', protect, [
 
     const { title, date, time, guests, theme, notes } = req.body
 
-    const movieNight = new MovieNight({
+    const movieNight = await MovieNight.create({
       title,
       date,
       time,
-      host: req.user._id,
+      hostId: req.user.id,
       guests: guests || [],
-      movies: [],
       theme,
-      notes
+      notes,
+      status: 'planned'
     })
-
-    await movieNight.save()
-
-    // Add to user's movie nights
-    const user = await User.findById(req.user._id)
-    if (user) {
-      user.movieNights.push(movieNight._id)
-      await user.save()
-    }
 
     res.status(201).json({
       message: 'Movie night created successfully',
@@ -60,17 +52,24 @@ router.get('/', protect, async (req: any, res: any) => {
     const { status } = req.query
     const now = new Date()
 
-    let query: any = { host: req.user._id }
-    
+    let where: any = { hostId: req.user.id }
+
     if (status === 'upcoming') {
-      query.date = { $gte: now }
+      where.date = { [Op.gte]: now }
     } else if (status === 'past') {
-      query.date = { $lt: now }
+      where.date = { [Op.lt]: now }
     }
 
-    const movieNights = await MovieNight.find(query)
-      .populate('movies', 'title posterUrl rating')
-      .sort({ date: 1, time: 1 })
+    const movieNights = await MovieNight.findAll({
+      where,
+      include: [{
+        model: Movie,
+        as: 'movies',
+        attributes: ['id', 'title', 'posterUrl', 'rating'],
+        through: { attributes: [] }
+      }],
+      order: [['date', 'ASC'], ['time', 'ASC']]
+    })
 
     res.json({ movieNights })
   } catch (error) {
@@ -97,15 +96,15 @@ router.put('/:id', protect, [
     const { id } = req.params
     const updates = req.body
 
-    const movieNight = await MovieNight.findOneAndUpdate(
-      { _id: id, host: req.user._id },
-      updates,
-      { new: true, runValidators: true }
-    )
+    const movieNight = await MovieNight.findOne({
+      where: { id, hostId: req.user.id }
+    })
 
     if (!movieNight) {
       return res.status(404).json({ message: 'Movie night not found' })
     }
+
+    await movieNight.update(updates)
 
     res.json({
       message: 'Movie night updated successfully',
@@ -122,19 +121,15 @@ router.delete('/:id', protect, async (req: any, res: any) => {
   try {
     const { id } = req.params
 
-    const movieNight = await MovieNight.findOneAndDelete({
-      _id: id,
-      host: req.user._id
+    const movieNight = await MovieNight.findOne({
+      where: { id, hostId: req.user.id }
     })
 
     if (!movieNight) {
       return res.status(404).json({ message: 'Movie night not found' })
     }
 
-    // Remove from user's movie nights
-    await User.findByIdAndUpdate(req.user._id, {
-      $pull: { movieNights: id }
-    })
+    await movieNight.destroy()
 
     res.json({
       message: 'Movie night deleted successfully'
@@ -158,25 +153,29 @@ router.post('/:id/movies', protect, [
     const { id } = req.params
     const { movieIds } = req.body
 
-    // Verify movies exist
-    const movies = await Movie.find({ _id: { $in: movieIds } })
-    if (movies.length !== movieIds.length) {
-      return res.status(400).json({ message: 'Some movies not found' })
-    }
-
-    const movieNight = await MovieNight.findOneAndUpdate(
-      { _id: id, host: req.user._id },
-      { $addToSet: { movies: { $each: movieIds } } },
-      { new: true }
-    ).populate('movies', 'title posterUrl rating')
+    const movieNight = await MovieNight.findOne({
+      where: { id, hostId: req.user.id }
+    })
 
     if (!movieNight) {
       return res.status(404).json({ message: 'Movie night not found' })
     }
 
+    // Add movies (Sequelize helper for many-to-many)
+    await (movieNight as any).addMovies(movieIds)
+
+    const updatedMovieNight = await MovieNight.findByPk(id, {
+      include: [{
+        model: Movie,
+        as: 'movies',
+        attributes: ['id', 'title', 'posterUrl', 'rating'],
+        through: { attributes: [] }
+      }]
+    })
+
     res.json({
       message: 'Movies added to movie night successfully',
-      movieNight
+      movieNight: updatedMovieNight
     })
   } catch (error) {
     console.error('Add movies to movie night error:', error)

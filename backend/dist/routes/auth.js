@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const express_validator_1 = require("express-validator");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const sequelize_1 = require("sequelize");
 const User_1 = require("../models/User");
 const auth_1 = require("../middleware/auth");
 const router = express_1.default.Router();
@@ -25,7 +26,9 @@ router.post('/register', [
         const { email, username, password, firstName, lastName } = req.body;
         // Check if user already exists
         const existingUser = await User_1.User.findOne({
-            $or: [{ email }, { username }]
+            where: {
+                [sequelize_1.Op.or]: [{ email }, { username }]
+            }
         });
         if (existingUser) {
             return res.status(400).json({
@@ -36,21 +39,21 @@ router.post('/register', [
         const salt = await bcryptjs_1.default.genSalt(12);
         const hashedPassword = await bcryptjs_1.default.hash(password, salt);
         // Create user
-        const user = new User_1.User({
+        const user = await User_1.User.create({
             email,
             username,
             password: hashedPassword,
             firstName,
-            lastName
+            lastName,
+            isEmailVerified: false
         });
-        await user.save();
         // Generate token
-        const token = (0, auth_1.generateToken)(user._id.toString());
+        const token = (0, auth_1.generateToken)(user.id.toString());
         res.status(201).json({
             message: 'User registered successfully',
             token,
             user: {
-                id: user._id,
+                id: user.id,
                 email: user.email,
                 username: user.username,
                 firstName: user.firstName,
@@ -77,7 +80,7 @@ router.post('/login', [
         }
         const { email, password } = req.body;
         // Find user
-        const user = await User_1.User.findOne({ email });
+        const user = await User_1.User.findOne({ where: { email } });
         if (!user || !user.password) {
             return res.status(401).json({
                 message: 'Invalid email or password'
@@ -94,12 +97,12 @@ router.post('/login', [
         user.lastLogin = new Date();
         await user.save();
         // Generate token
-        const token = (0, auth_1.generateToken)(user._id.toString());
+        const token = (0, auth_1.generateToken)(user.id.toString());
         res.json({
             message: 'Login successful',
             token,
             user: {
-                id: user._id,
+                id: user.id,
                 email: user.email,
                 username: user.username,
                 firstName: user.firstName,
@@ -117,14 +120,15 @@ router.post('/login', [
 // Get current user
 router.get('/me', auth_1.protect, async (req, res) => {
     try {
-        const user = await User_1.User.findById(req.user._id)
-            .populate('movieNights');
+        const user = await User_1.User.findByPk(req.user.id, {
+            include: ['hostedMovieNights']
+        });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
         res.json({
             user: {
-                id: user._id,
+                id: user.id,
                 email: user.email,
                 username: user.username,
                 firstName: user.firstName,
@@ -132,7 +136,7 @@ router.get('/me', auth_1.protect, async (req, res) => {
                 avatar: user.avatar,
                 isEmailVerified: user.isEmailVerified,
                 preferences: user.preferences,
-                movieNights: user.movieNights,
+                movieNights: user.hostedMovieNights,
                 createdAt: user.createdAt
             }
         });
@@ -154,32 +158,24 @@ router.put('/preferences', auth_1.protect, [
             return res.status(400).json({ errors: errors.array() });
         }
         const { favoriteGenres, moodPreferences, ratingThreshold } = req.body;
-        const user = await User_1.User.findById(req.user._id);
+        const user = await User_1.User.findByPk(req.user.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        if (!user.preferences) {
-            user.preferences = {
-                favoriteGenres: [],
-                moodPreferences: [],
-                dislikedMovies: [],
-                likedMovies: [],
-                watchlist: [],
-                ratingThreshold: 6.0
-            };
-        }
+        const preferences = { ...(user.preferences || {}) };
         if (favoriteGenres) {
-            user.preferences.favoriteGenres = favoriteGenres;
+            preferences.favoriteGenres = favoriteGenres;
         }
         if (moodPreferences) {
-            user.preferences.moodPreferences = moodPreferences.map((pref) => ({
+            preferences.moodPreferences = moodPreferences.map((pref) => ({
                 ...pref,
                 lastSelected: pref.lastSelected || new Date()
             }));
         }
         if (ratingThreshold !== undefined) {
-            user.preferences.ratingThreshold = ratingThreshold;
+            preferences.ratingThreshold = ratingThreshold;
         }
+        user.preferences = preferences;
         await user.save();
         res.json({
             message: 'Preferences updated successfully',
@@ -194,14 +190,15 @@ router.put('/preferences', auth_1.protect, [
 // Get user statistics (admin endpoint)
 router.get('/stats', auth_1.protect, async (req, res) => {
     try {
-        const userCount = await User_1.User.countDocuments();
-        const verifiedUsers = await User_1.User.countDocuments({ isEmailVerified: true });
-        const googleUsers = await User_1.User.countDocuments({ googleId: { $exists: true } });
-        const appleUsers = await User_1.User.countDocuments({ appleId: { $exists: true } });
-        const recentUsers = await User_1.User.find()
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .select('email username createdAt');
+        const userCount = await User_1.User.count();
+        const verifiedUsers = await User_1.User.count({ where: { isEmailVerified: true } });
+        const googleUsers = await User_1.User.count({ where: { googleId: { [sequelize_1.Op.ne]: null } } });
+        const appleUsers = await User_1.User.count({ where: { appleId: { [sequelize_1.Op.ne]: null } } });
+        const recentUsers = await User_1.User.findAll({
+            order: [['createdAt', 'DESC']],
+            limit: 5,
+            attributes: ['email', 'username', 'createdAt']
+        });
         res.json({
             totalUsers: userCount,
             verifiedUsers,

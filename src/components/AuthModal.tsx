@@ -110,12 +110,37 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5" component="div">
-          Welcome to Movie Recommendar
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          backgroundColor: 'rgba(21, 21, 30, 0.95)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: 4,
+          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+        }
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 3, pb: 2 }}>
+        <Typography variant="h5" component="div" sx={{ fontWeight: 700, background: 'linear-gradient(135deg, #FF3366 0%, #00E5FF 100%)', backgroundClip: 'text', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Welcome to CinePick
         </Typography>
-        <IconButton onClick={handleClose}>
+        <IconButton
+          onClick={handleClose}
+          sx={{
+            color: '#B8B8CD',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(4px)',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 51, 102, 0.2)',
+              color: '#FF3366'
+            }
+          }}
+        >
           <Close />
         </IconButton>
       </DialogTitle>
@@ -127,7 +152,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
           </Alert>
         )}
 
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
           <Tabs value={tabValue} onChange={handleTabChange}>
             <Tab label="Sign In" />
             <Tab label="Sign Up" />
@@ -154,7 +179,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               margin="normal"
               required
             />
-            
+
             <Button
               type="submit"
               fullWidth
@@ -235,7 +260,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               required
               helperText="Minimum 6 characters"
             />
-            
+
             <Button
               type="submit"
               fullWidth

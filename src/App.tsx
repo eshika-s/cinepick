@@ -62,10 +62,10 @@ function AppContent() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const token = urlParams.get('token')
-    
+
     if (token) {
       localStorage.setItem('token', token)
-      
+
       const handleOAuthLogin = async () => {
         try {
           const userResponse = await apiService.getCurrentUser()
@@ -76,7 +76,7 @@ function AppContent() {
           localStorage.removeItem('token')
         }
       }
-      
+
       handleOAuthLogin()
     }
   }, [loginWithToken])
@@ -91,6 +91,32 @@ function AppContent() {
     return () => {
       window.removeEventListener('open-auth-modal', handleOpenAuthModal)
     }
+  }, [])
+
+  // Handle navigation from Navbar
+  useEffect(() => {
+    const handleNavigation = (e: Event) => {
+      const customEvent = e as CustomEvent<{ view: string }>
+      const { view } = customEvent.detail
+
+      const viewMap: Record<string, number> = {
+        'browse': 0,
+        'mood': 1,
+        'discovery': 2,
+        'planner': 3,
+      }
+
+      if (view in viewMap) {
+        setTabValue(viewMap[view])
+        // Reset search/filters when navigating between main sections
+        setSearchQuery('')
+        setSelectedMood('')
+        setSelectedGenre('all')
+      }
+    }
+
+    window.addEventListener('navigate', handleNavigation)
+    return () => window.removeEventListener('navigate', handleNavigation)
   }, [])
 
   // Category sections
@@ -111,23 +137,23 @@ function AppContent() {
 
   const handleMoodSelect = async (mood: string, description: string) => {
     setSelectedMood(mood)
-    
+
     if (state.isAuthenticated && mood) {
       try {
         const currentPrefs = state.user?.preferences?.moodPreferences || []
         const existingPref = currentPrefs.find(p => p.mood === mood)
-        
+
         let updatedPrefs
         if (existingPref) {
-          updatedPrefs = currentPrefs.map(p => 
-            p.mood === mood 
+          updatedPrefs = currentPrefs.map(p =>
+            p.mood === mood
               ? { ...p, weight: Math.min(p.weight + 0.1, 5), lastSelected: new Date().toISOString() }
               : p
           )
         } else {
           updatedPrefs = [...currentPrefs, { mood, weight: 1, lastSelected: new Date().toISOString() }]
         }
-        
+
         await apiService.updatePreferences({ moodPreferences: updatedPrefs })
       } catch (error) {
         console.error('Failed to update mood preference:', error)
@@ -165,7 +191,7 @@ function AppContent() {
 
   const handleWatchlistToggle = async (movieId: string, add: boolean) => {
     console.log('handleWatchlistToggle called:', { movieId, add, isAuthenticated: state.isAuthenticated })
-    
+
     if (state.isAuthenticated) {
       try {
         console.log('Updating watchlist on server...')
@@ -197,57 +223,76 @@ function AppContent() {
       display: 'flex',
       flexDirection: 'column',
       minHeight: '100vh',
-      backgroundColor: '#141414',
+      backgroundColor: 'transparent',
     }}>
-      <Navbar onSearch={handleSearch} />
-      
+      <Navbar
+        onSearch={handleSearch}
+        activeView={['browse', 'mood', 'discovery', 'planner'][tabValue]}
+      />
+
       <Box sx={{ mt: 8, flex: 1 }}>
         <Container maxWidth="xl" sx={{ py: 4 }}>
           {/* Hero Section */}
           {!showSearchResults && tabValue === 0 && (
-            <Box sx={{ 
-              textAlign: 'center', 
+            <Box sx={{
+              textAlign: 'center',
               mb: 6,
-              py: { xs: 4, md: 8 },
-              background: 'linear-gradient(135deg, rgba(229, 9, 20, 0.1) 0%, rgba(0, 0, 0, 0.8) 100%)',
-              borderRadius: 2,
-              border: '1px solid #333',
+              py: { xs: 5, md: 10 },
+              background: 'linear-gradient(135deg, rgba(255, 51, 102, 0.1) 0%, rgba(0, 229, 255, 0.05) 100%)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: 4,
+              border: '1px solid rgba(255,255,255,0.05)',
+              boxShadow: '0 20px 40px -10px rgba(0,0,0,0.4)',
+              position: 'relative',
+              overflow: 'hidden'
             }}>
-              <Typography 
-                variant="h2" 
-                component="h1" 
-                sx={{ 
-                  fontWeight: 700,
-                  fontSize: { xs: '2.5rem', md: '3.5rem' },
+              <Box sx={{
+                position: 'absolute',
+                top: '-50%',
+                left: '-10%',
+                width: '60%',
+                height: '200%',
+                background: 'radial-gradient(circle, rgba(255,51,102,0.15) 0%, transparent 70%)',
+                transform: 'rotate(25deg)',
+                pointerEvents: 'none'
+              }} />
+              <Typography
+                variant="h1"
+                component="h1"
+                sx={{
+                  fontWeight: 800,
+                  fontSize: { xs: '3rem', md: '5rem' },
                   color: '#ffffff',
                   mb: 2,
-                  background: 'linear-gradient(45deg, #e50914, #ff6b6b)',
+                  background: 'linear-gradient(135deg, #FF3366 0%, #00E5FF 100%)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
+                  letterSpacing: '-1px'
                 }}
               >
                 CINEPICK
               </Typography>
-　
-　
-              <Typography 
-                variant="h5" 
-                sx={{ 
-                  color: '#b3b3b3',
-                  mb: 4,
-                  maxWidth: '800px',
+
+
+              <Typography
+                variant="h5"
+                sx={{
+                  color: '#B8B8CD',
+                  mb: 5,
+                  maxWidth: '700px',
                   mx: 'auto',
                   lineHeight: 1.6,
+                  fontWeight: 400
                 }}
               >
                 Discover your next favorite movie with our unique recommendation features
                 {state.isAuthenticated && ' (Personalized for you!)'}
               </Typography>
-　　 　 　 　
-              <Box 
-                display="flex" 
-                gap={2} 
+
+              <Box
+                display="flex"
+                gap={2}
                 flexDirection={{ xs: 'column', sm: 'row' }}
                 justifyContent="center"
                 alignItems="center"
@@ -265,8 +310,8 @@ function AppContent() {
 
           {/* Search Results Header */}
           {showSearchResults && (
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h4" sx={{ color: '#ffffff', mb: 2 }}>
+            <Box sx={{ mb: 4, animation: 'fadeIn 0.6s ease-out' }}>
+              <Typography variant="h4" sx={{ color: '#ffffff', mb: 3, fontWeight: 700 }}>
                 {searchQuery ? `Search Results for "${searchQuery}"` : `${selectedGenre} Movies`}
               </Typography>
               <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
@@ -277,7 +322,7 @@ function AppContent() {
                 />
                 {selectedMood && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" sx={{ color: '#b3b3b3' }}>
+                    <Typography variant="body2" sx={{ color: '#B8B8CD' }}>
                       Mood: <strong>{moodData.find(m => m.id === selectedMood)?.name || selectedMood}</strong>
                     </Typography>
                     <Button
@@ -287,7 +332,7 @@ function AppContent() {
                         setSearchQuery('')
                         setTabValue(1)
                       }}
-                      sx={{ color: '#e50914' }}
+                      sx={{ color: '#FF3366' }}
                     >
                       Back to Mood Picker
                     </Button>
@@ -315,31 +360,9 @@ function AppContent() {
             </Box>
           )}
 
-          {/* Navigation Tabs and Tab Content - Only show when not searching */}
+          {/* Main Content - Only show when not searching */}
           {!showSearchResults && (
-            <Box>
-              <Box sx={{ 
-                borderBottom: '1px solid #333', 
-                mb: 4 
-              }}>
-                <Tabs 
-                  value={tabValue} 
-                  onChange={handleTabChange}
-                  variant="scrollable"
-                  scrollButtons="auto"
-                  sx={{
-                    '& .MuiTabs-indicator': {
-                      backgroundColor: '#e50914',
-                      height: 3,
-                    },
-                  }}
-                >
-                  <Tab label="🎬 Browse Movies" />
-                  <Tab label="😊 Mood Picker" />
-                  <Tab label="🎯 Movie Discovery" />
-                  <Tab label="🗓️ Movie Night Planner" />
-                </Tabs>
-              </Box>
+            <Box sx={{ animation: 'fadeIn 0.6s ease-out' }}>
 
               <TabPanel value={tabValue} index={0}>
                 <MovieSection
@@ -352,7 +375,7 @@ function AppContent() {
                   userWatchlist={state.user?.preferences?.watchlist || []}
                   userLikedMovies={state.user?.preferences?.likedMovies || []}
                 />
-                
+
                 <MovieSection
                   title="Popular Movies"
                   movies={popularMovies}
@@ -363,7 +386,7 @@ function AppContent() {
                   userWatchlist={state.user?.preferences?.watchlist || []}
                   userLikedMovies={state.user?.preferences?.likedMovies || []}
                 />
-                
+
                 <MovieSection
                   title="Top Rated"
                   movies={topRatedMovies}
@@ -374,7 +397,7 @@ function AppContent() {
                   userWatchlist={state.user?.preferences?.watchlist || []}
                   userLikedMovies={state.user?.preferences?.likedMovies || []}
                 />
-                
+
                 <MovieSection
                   title="Now Playing"
                   movies={nowPlayingMovies}
@@ -388,8 +411,8 @@ function AppContent() {
               </TabPanel>
 
               <TabPanel value={tabValue} index={1}>
-                <MoodPicker 
-                  onMoodSelect={handleMoodSelect} 
+                <MoodPicker
+                  onMoodSelect={handleMoodSelect}
                   selectedMood={selectedMood}
                 />
               </TabPanel>

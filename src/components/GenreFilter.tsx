@@ -14,14 +14,15 @@ export default function GenreFilter({ selectedGenre, onGenreChange }: GenreFilte
   return (
     <Box className="fade-in">
       <FormControl fullWidth>
-        <InputLabel 
+        <InputLabel
           sx={{
-            color: '#9ca3af',
+            color: '#B8B8CD',
+            marginTop: '-6px',
             '&.Mui-focused': {
-              color: '#6366f1',
+              color: '#00E5FF',
             },
             background: 'transparent',
-            fontWeight: 500,
+            fontWeight: 600,
           }}
         >
           Genre
@@ -33,65 +34,66 @@ export default function GenreFilter({ selectedGenre, onGenreChange }: GenreFilte
           MenuProps={{
             PaperProps: {
               sx: {
-                background: 'rgba(17, 24, 39, 0.95)',
+                background: 'rgba(21, 21, 30, 0.95)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: 3,
-                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)',
+                borderRadius: 4,
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.6)',
                 mt: 1,
                 '& .MuiList-root': {
                   padding: '8px',
                 },
                 '& .MuiMenuItem-root': {
-                  borderRadius: 2,
-                  margin: '2px 0',
+                  borderRadius: 3,
+                  margin: '4px 0',
                   transition: 'all 0.2s ease',
-                  color: '#e5e7eb',
-                  fontSize: '0.9rem',
-                  fontWeight: 400,
+                  color: '#ffffff',
+                  fontSize: '0.95rem',
+                  fontWeight: 500,
                   '&:hover': {
-                    background: 'linear-gradient(45deg, rgba(99, 102, 241, 0.2), rgba(236, 72, 153, 0.2))',
+                    background: 'linear-gradient(135deg, rgba(255, 51, 102, 0.15), rgba(0, 229, 255, 0.15))',
                     color: '#ffffff',
                     transform: 'translateX(4px)',
                   },
                   '&.Mui-selected': {
-                    background: 'linear-gradient(45deg, rgba(99, 102, 241, 0.3), rgba(236, 72, 153, 0.3))',
+                    background: 'linear-gradient(135deg, rgba(255, 51, 102, 0.25), rgba(0, 229, 255, 0.25))',
                     color: '#ffffff',
-                    fontWeight: 600,
+                    fontWeight: 700,
                   },
                 },
               }
             }
           }}
           sx={{
-            background: 'rgba(17, 24, 39, 0.8)',
+            background: 'rgba(255, 255, 255, 0.05)',
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: 3,
-            color: '#e5e7eb',
+            color: '#white',
+            padding: '4px',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             '&:hover': {
-              background: 'rgba(17, 24, 39, 0.9)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 51, 102, 0.3)',
               transform: 'translateY(-2px)',
-              boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 8px 25px rgba(255, 51, 102, 0.2)',
             },
             '&.Mui-focused': {
-              background: 'rgba(17, 24, 39, 0.95)',
+              background: 'rgba(255, 255, 255, 0.08)',
               border: '2px solid',
-              borderColor: 'primary.main',
+              borderColor: '#00E5FF',
               transform: 'translateY(-2px)',
-              boxShadow: '0 12px 35px rgba(99, 102, 241, 0.3)',
+              boxShadow: '0 12px 35px rgba(0, 229, 255, 0.2)',
             },
             '& .MuiOutlinedInput-notchedOutline': {
               border: 'none',
             },
             '& .MuiSelect-select': {
-              color: '#e5e7eb',
-              fontWeight: 500,
+              color: '#ffffff',
+              fontWeight: 600,
             },
             '& .MuiSvgIcon-root': {
-              color: '#9ca3af',
+              color: '#B8B8CD',
             },
           }}
         >

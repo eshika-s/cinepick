@@ -79,13 +79,13 @@ app.use('/api/movie-nights', movieNights_1.default);
 // Google OAuth routes
 app.get('/api/auth/google', passport_1.passport.authenticate('google', { scope: ['profile', 'email'] }));
 app.get('/api/auth/google/callback', passport_1.passport.authenticate('google', { session: false }), (req, res) => {
-    const token = (0, auth_1.generateToken)(req.user._id.toString());
+    const token = (0, auth_1.generateToken)(req.user.id.toString());
     res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
 });
 // Apple Sign In routes
 app.get('/api/auth/apple', passport_1.passport.authenticate('apple'));
 app.post('/api/auth/apple/callback', passport_1.passport.authenticate('apple', { session: false }), (req, res) => {
-    const token = (0, auth_1.generateToken)(req.user._id.toString());
+    const token = (0, auth_1.generateToken)(req.user.id.toString());
     res.json({ token });
 });
 // Error handling middleware

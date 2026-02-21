@@ -13,10 +13,10 @@ interface MovieSectionProps {
   userLikedMovies?: string[]
 }
 
-export default function MovieSection({ 
-  title, 
-  movies, 
-  loading, 
+export default function MovieSection({
+  title,
+  movies,
+  loading,
   onMovieSelect,
   onLike,
   onWatchlistToggle,
@@ -25,16 +25,18 @@ export default function MovieSection({
 }: MovieSectionProps) {
   return (
     <Box sx={{ mb: 6 }} className="fade-in">
-      <Typography variant="h5" component="h2" sx={{ 
+      <Typography variant="h5" component="h2" sx={{
         mb: 3,
         fontWeight: 700,
         pl: 2,
         color: '#ffffff',
         fontSize: { xs: '1.5rem', md: '1.75rem' },
+        borderLeft: '4px solid #FF3366',
+        borderRadius: '2px'
       }}>
         {title}
       </Typography>
-      
+
       <Box sx={{
         display: 'flex',
         overflowX: 'auto',
@@ -43,32 +45,38 @@ export default function MovieSection({
         px: 2,
         scrollSnapType: 'x mandatory',
         '&::-webkit-scrollbar': {
-          height: 8,
+          height: 10,
         },
         '&::-webkit-scrollbar-thumb': {
-          backgroundColor: '#333',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          borderRadius: 8,
+          border: '2px solid rgba(10, 10, 15, 0.8)',
+        },
+        '&::-webkit-scrollbar-track': {
+          background: 'rgba(10, 10, 15, 0.8)',
           borderRadius: 4,
         }
       }}>
         {loading ? (
           // Enhanced loading skeletons
           [...Array(4)].map((_, index) => (
-            <Box key={index} sx={{ 
+            <Box key={index} sx={{
               minWidth: 250,
               scrollSnapAlign: 'start',
               animation: `fadeIn 0.6s ease-out ${index * 0.1}s both`
             }}>
-              <Box sx={{ 
-                borderRadius: 2,
+              <Box sx={{
+                borderRadius: 4,
                 overflow: 'hidden',
-                background: '#1f1f1f',
-                border: '1px solid #333',
+                background: 'rgba(21, 21, 30, 0.6)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
               }}>
-                <Skeleton 
-                  variant="rectangular" 
-                  width={250} 
+                <Skeleton
+                  variant="rectangular"
+                  width={250}
                   height={375}
-                  sx={{ 
+                  sx={{
                     borderRadius: 0,
                     background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)',
                     backgroundSize: '1000px 100%',
@@ -76,46 +84,46 @@ export default function MovieSection({
                   }}
                 />
                 <Box sx={{ p: 2 }}>
-                  <Skeleton 
-                    width="60%" 
+                  <Skeleton
+                    width="60%"
                     height={24}
-                    sx={{ 
+                    sx={{
                       mb: 1,
                       background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)',
                       backgroundSize: '1000px 100%',
                       animation: 'shimmer 2s infinite',
-                    }} 
+                    }}
                   />
-                  <Skeleton 
-                    width="40%" 
+                  <Skeleton
+                    width="40%"
                     height={16}
-                    sx={{ 
+                    sx={{
                       mb: 2,
                       background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)',
                       backgroundSize: '1000px 100%',
                       animation: 'shimmer 2s infinite',
-                    }} 
+                    }}
                   />
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Skeleton 
-                      width={60} 
+                    <Skeleton
+                      width={60}
                       height={24}
-                      sx={{ 
+                      sx={{
                         borderRadius: 1,
                         background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)',
                         backgroundSize: '1000px 100%',
                         animation: 'shimmer 2s infinite',
-                      }} 
+                      }}
                     />
-                    <Skeleton 
-                      width={60} 
+                    <Skeleton
+                      width={60}
                       height={24}
-                      sx={{ 
+                      sx={{
                         borderRadius: 1,
                         background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)',
                         backgroundSize: '1000px 100%',
                         animation: 'shimmer 2s infinite 0.5s',
-                      }} 
+                      }}
                     />
                   </Box>
                 </Box>
@@ -125,13 +133,13 @@ export default function MovieSection({
         ) : (
           // Actual movie cards with staggered animation
           movies.map((movie, index) => (
-            <Box key={movie.id} sx={{ 
+            <Box key={movie.id} sx={{
               minWidth: 250,
               scrollSnapAlign: 'start',
               animation: `slideInLeft 0.6s ease-out ${index * 0.1}s both`
             }}>
-              <MovieCard 
-                movie={movie} 
+              <MovieCard
+                movie={movie}
                 onMovieSelect={onMovieSelect}
                 onLike={onLike}
                 onWatchlistToggle={onWatchlistToggle}

@@ -1,116 +1,91 @@
-import mongoose from 'mongoose'
+import { Model, DataTypes } from 'sequelize';
+import sequelize from '../config/database';
 
-const userSchema = new mongoose.Schema({
+export class User extends Model {
+  public id!: number;
+  public email!: string;
+  public password?: string;
+  public username!: string;
+  public firstName?: string;
+  public lastName?: string;
+  public avatar?: string;
+  public googleId?: string;
+  public appleId?: string;
+  public isEmailVerified!: boolean;
+  public lastLogin!: Date;
+  public preferences!: any;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+User.init({
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
   email: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    lowercase: true,
-    trim: true
+    validate: {
+      isEmail: true,
+    },
   },
   password: {
-    type: String,
-    required: function(this: any): boolean {
-      return !this.googleId && !this.appleId
-    }
+    type: DataTypes.STRING,
+    allowNull: true, // Allow null for OAuth users
   },
   username: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
     unique: true,
-    trim: true,
-    minlength: 3,
-    maxlength: 30
   },
   firstName: {
-    type: String,
-    trim: true
+    type: DataTypes.STRING,
   },
   lastName: {
-    type: String,
-    trim: true
+    type: DataTypes.STRING,
   },
   avatar: {
-    type: String
+    type: DataTypes.STRING,
   },
   googleId: {
-    type: String,
-    sparse: true
+    type: DataTypes.STRING,
+    unique: true,
   },
   appleId: {
-    type: String,
-    sparse: true
+    type: DataTypes.STRING,
+    unique: true,
   },
   isEmailVerified: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
   lastLogin: {
-    type: Date,
-    default: Date.now
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
   },
   preferences: {
-    favoriteGenres: [{
-      type: String,
-      enum: ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller', 'documentary', 'family']
-    }],
-    moodPreferences: [{
-      mood: {
-        type: String,
-        enum: ['happy', 'thriller', 'cozy', 'mindbending', 'romantic', 'epic']
-      },
-      weight: {
-        type: Number,
-        default: 1,
-        min: 0,
-        max: 5
-      },
-      lastSelected: {
-        type: Date,
-        default: Date.now
-      }
-    }],
-    dislikedMovies: [{
-      type: String
-    }],
-    likedMovies: [{
-      type: String
-    }],
-    watchlist: [{
-      type: String
-    }],
-    ratingThreshold: {
-      type: Number,
-      default: 6.0,
-      min: 0,
-      max: 10
-    }
+    type: DataTypes.JSON,
+    defaultValue: {
+      favoriteGenres: [],
+      moodPreferences: [],
+      dislikedMovies: [],
+      likedMovies: [],
+      watchlist: [],
+      ratingThreshold: 6.0
+    },
   },
-  movieNights: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'MovieNight'
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  }
 }, {
+  sequelize,
+  modelName: 'User',
+  tableName: 'users',
   timestamps: true,
-  toJSON: {
-    transform: function(doc: any, ret: any) {
-      delete ret.password
-      return ret
-    }
-  }
-})
-
-userSchema.index({ email: 1 })
-userSchema.index({ username: 1 })
-userSchema.index({ googleId: 1 })
-userSchema.index({ appleId: 1 })
-
-export const User = mongoose.model('User', userSchema)
+  indexes: [
+    { unique: true, fields: ['email'] },
+    { unique: true, fields: ['username'] },
+    { fields: ['googleId'] },
+    { fields: ['appleId'] },
+  ],
+});

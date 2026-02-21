@@ -26,30 +26,34 @@ export default function SearchBar({ onSearch }: SearchBarProps) {
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <SearchIcon sx={{ color: '#666666' }} />
+              <SearchIcon sx={{ color: '#B8B8CD' }} />
             </InputAdornment>
           ),
         }}
         sx={{
           '& .MuiOutlinedInput-root': {
-            backgroundColor: '#ffffff',
-            borderRadius: 2,
-            '&:hover .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#d1d5db',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: 3,
+            '& fieldset': {
+              borderColor: 'rgba(255, 255, 255, 0.1)',
             },
-            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-              borderColor: '#6366f1',
+            '&:hover fieldset': {
+              borderColor: 'rgba(255, 51, 102, 0.3)',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#00E5FF',
               borderWidth: '2px',
             },
           },
           '& .MuiOutlinedInput-input': {
-            color: '#1a1a1a',
+            color: '#ffffff',
             padding: '12px 14px',
           },
           '& .MuiInputLabel-root': {
-            color: '#666666',
+            color: '#B8B8CD',
             '&.Mui-focused': {
-              color: '#6366f1',
+              color: '#00E5FF',
             }
           }
         }}

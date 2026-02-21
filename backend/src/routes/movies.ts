@@ -1,5 +1,6 @@
 import express from 'express'
 import axios from 'axios'
+import { Op } from 'sequelize'
 import { protect, AuthRequest } from '../middleware/auth'
 import { Movie } from '../models/Movie'
 
@@ -25,8 +26,8 @@ router.get('/', async (req, res) => {
     }
 
     if (category) {
-      endpoint = category === 'trending' 
-        ? '/trending/movie/week' 
+      endpoint = category === 'trending'
+        ? '/trending/movie/week'
         : `/movie/${category}`
     } else if (searchQuery) {
       endpoint = '/search/movie'
@@ -43,10 +44,10 @@ router.get('/', async (req, res) => {
     // Retry logic for connection issues
     let retries = 3
     let lastError: any = null
-    
+
     while (retries > 0) {
       try {
-        const response = await axios.get(`${TMDB_BASE_URL}${endpoint}`, { 
+        const response = await axios.get(`${TMDB_BASE_URL}${endpoint}`, {
           params,
           timeout: 15000,
           headers: {
@@ -68,93 +69,99 @@ router.get('/', async (req, res) => {
       } catch (error: any) {
         lastError = error
         retries--
-        
+
         if (error.code === 'ECONNRESET' && retries > 0) {
           console.log(`⚠️ Connection reset, retrying... (${retries} retries left)`)
           await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
           continue
         }
-        
+
         throw error
       }
     }
-    
+
     throw lastError
 
   } catch (error: any) {
     console.error('❌ Get movies error:', error.message)
-    console.error('Error details:', error.response?.data || error.code)
-    
+
     // Handle specific error cases
     if (error.code === 'ECONNABORTED') {
-      return res.status(504).json({ 
+      return res.status(504).json({
         message: 'Request timeout - TMDB API is slow',
         error: 'timeout'
       })
     }
-    
+
     if (error.code === 'ECONNRESET') {
-      return res.status(503).json({ 
+      return res.status(503).json({
         message: 'Connection to TMDB API failed. Please try again.',
         error: 'connection_reset'
       })
     }
-    
+
     if (error.response?.status === 429) {
-      return res.status(429).json({ 
+      return res.status(429).json({
         message: 'Too many requests to TMDB API',
         error: 'rate_limit'
       })
     }
-    
+
     if (error.response?.status === 401) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         message: 'Invalid TMDB API key',
         error: 'invalid_api_key'
       })
     }
-    
-    res.status(500).json({ 
-      message: 'Server error fetching movies', 
+
+    res.status(500).json({
+      message: 'Server error fetching movies',
       error: error.message,
       details: error.response?.data || error.code
     })
   }
 })
 
-// Search movies
+// Search movies in local database
 router.get('/search', async (req, res) => {
   try {
     const { q, genre, mood, page = 1, limit = 20 } = req.query
 
-    const query: any = {}
-    
+    const where: any = {}
+
     if (q) {
-      query.$text = { $search: q as string }
+      where[Op.or] = [
+        { title: { [Op.like]: `%${q}%` } },
+        { overview: { [Op.like]: `%${q}%` } }
+      ]
     }
-    
+
     if (genre) {
-      query.genres = genre
+      // For JSON array in MySQL, we might need JSON_CONTAINS or just Op.like if it's stringified
+      // but Sequelize handles JSON fields. However Op.contains is for postgres.
+      // For MySQL JSON, we can use Op.like if we know the structure or Op.regexp
+      where.genres = { [Op.like]: `%${genre}%` }
     }
-    
+
     if (mood) {
-      query.moodTags = mood
+      where.moodTags = { [Op.like]: `%${mood}%` }
     }
 
-    const movies = await Movie.find(query)
-      .sort({ rating: -1, popularity: -1 })
-      .limit(Number(limit) * Number(page))
-      .skip((Number(page) - 1) * Number(limit))
-
-    const total = await Movie.countDocuments(query)
+    const offset = (Number(page) - 1) * Number(limit)
+    const { count, rows: movies } = await Movie.findAndCountAll({
+      where,
+      order: [['rating', 'DESC'], ['popularity', 'DESC']],
+      limit: Number(limit),
+      offset: offset
+    })
 
     res.json({
       movies,
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        total,
-        pages: Math.ceil(total / Number(limit))
+        total: count,
+        pages: Math.ceil(count / Number(limit))
       }
     })
   } catch (error) {
@@ -166,8 +173,8 @@ router.get('/search', async (req, res) => {
 // Get movie by ID
 router.get('/:id', async (req, res) => {
   try {
-    const movie = await Movie.findById(req.params.id)
-    
+    const movie = await Movie.findByPk(req.params.id)
+
     if (!movie) {
       return res.status(404).json({ message: 'Movie not found' })
     }
@@ -183,11 +190,13 @@ router.get('/:id', async (req, res) => {
 router.get('/browse/popular', async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query
+    const offset = (Number(page) - 1) * Number(limit)
 
-    const movies = await Movie.find({})
-      .sort({ popularity: -1, rating: -1 })
-      .limit(Number(limit) * Number(page))
-      .skip((Number(page) - 1) * Number(limit))
+    const movies = await Movie.findAll({
+      order: [['popularity', 'DESC'], ['rating', 'DESC']],
+      limit: Number(limit),
+      offset: offset
+    })
 
     res.json({ movies })
   } catch (error) {
@@ -200,11 +209,13 @@ router.get('/browse/popular', async (req, res) => {
 router.get('/browse/top-rated', async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query
+    const offset = (Number(page) - 1) * Number(limit)
 
-    const movies = await Movie.find({})
-      .sort({ rating: -1, voteCount: -1 })
-      .limit(Number(limit) * Number(page))
-      .skip((Number(page) - 1) * Number(limit))
+    const movies = await Movie.findAll({
+      order: [['rating', 'DESC'], ['voteCount', 'DESC']],
+      limit: Number(limit),
+      offset: offset
+    })
 
     res.json({ movies })
   } catch (error) {
@@ -218,11 +229,16 @@ router.get('/browse/genre/:genre', async (req, res) => {
   try {
     const { genre } = req.params
     const { page = 1, limit = 20 } = req.query
+    const offset = (Number(page) - 1) * Number(limit)
 
-    const movies = await Movie.find({ genres: genre })
-      .sort({ rating: -1, popularity: -1 })
-      .limit(Number(limit) * Number(page))
-      .skip((Number(page) - 1) * Number(limit))
+    const movies = await Movie.findAll({
+      where: {
+        genres: { [Op.like]: `%${genre}%` }
+      },
+      order: [['rating', 'DESC'], ['popularity', 'DESC']],
+      limit: Number(limit),
+      offset: offset
+    })
 
     res.json({ movies })
   } catch (error) {

@@ -1,6 +1,7 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import bcrypt from 'bcryptjs'
+import { Op } from 'sequelize'
 import { User } from '../models/User'
 import { generateToken, protect, AuthRequest } from '../middleware/auth'
 
@@ -24,12 +25,14 @@ router.post('/register', [
 
     // Check if user already exists
     const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
+      where: {
+        [Op.or]: [{ email }, { username }]
+      }
     })
 
     if (existingUser) {
-      return res.status(400).json({ 
-        message: 'User with this email or username already exists' 
+      return res.status(400).json({
+        message: 'User with this email or username already exists'
       })
     }
 
@@ -38,24 +41,23 @@ router.post('/register', [
     const hashedPassword = await bcrypt.hash(password, salt)
 
     // Create user
-    const user = new User({
+    const user = await User.create({
       email,
       username,
       password: hashedPassword,
       firstName,
-      lastName
+      lastName,
+      isEmailVerified: false
     })
 
-    await user.save()
-
     // Generate token
-    const token = generateToken(user._id.toString())
+    const token = generateToken(user.id.toString())
 
     res.status(201).json({
       message: 'User registered successfully',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         username: user.username,
         firstName: user.firstName,
@@ -84,18 +86,18 @@ router.post('/login', [
     const { email, password } = req.body
 
     // Find user
-    const user = await User.findOne({ email })
+    const user = await User.findOne({ where: { email } })
     if (!user || !user.password) {
-      return res.status(401).json({ 
-        message: 'Invalid email or password' 
+      return res.status(401).json({
+        message: 'Invalid email or password'
       })
     }
 
     // Check password
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
-      return res.status(401).json({ 
-        message: 'Invalid email or password' 
+      return res.status(401).json({
+        message: 'Invalid email or password'
       })
     }
 
@@ -104,13 +106,13 @@ router.post('/login', [
     await user.save()
 
     // Generate token
-    const token = generateToken(user._id.toString())
+    const token = generateToken(user.id.toString())
 
     res.json({
       message: 'Login successful',
       token,
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         username: user.username,
         firstName: user.firstName,
@@ -128,8 +130,9 @@ router.post('/login', [
 // Get current user
 router.get('/me', protect, async (req: AuthRequest, res: any) => {
   try {
-    const user = await User.findById(req.user._id)
-      .populate('movieNights')
+    const user = await User.findByPk(req.user.id, {
+      include: ['hostedMovieNights']
+    })
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
@@ -137,7 +140,7 @@ router.get('/me', protect, async (req: AuthRequest, res: any) => {
 
     res.json({
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         username: user.username,
         firstName: user.firstName,
@@ -145,7 +148,7 @@ router.get('/me', protect, async (req: AuthRequest, res: any) => {
         avatar: user.avatar,
         isEmailVerified: user.isEmailVerified,
         preferences: user.preferences,
-        movieNights: user.movieNights,
+        movieNights: (user as any).hostedMovieNights,
         createdAt: user.createdAt
       }
     })
@@ -169,38 +172,30 @@ router.put('/preferences', protect, [
 
     const { favoriteGenres, moodPreferences, ratingThreshold } = req.body
 
-    const user = await User.findById(req.user._id)
-    
+    const user = await User.findByPk(req.user.id)
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    if (!user.preferences) {
-      user.preferences = {
-        favoriteGenres: [],
-        moodPreferences: [] as any,
-        dislikedMovies: [],
-        likedMovies: [],
-        watchlist: [],
-        ratingThreshold: 6.0
-      }
-    }
-    
+    const preferences = { ...(user.preferences || {}) }
+
     if (favoriteGenres) {
-      user.preferences.favoriteGenres = favoriteGenres
+      preferences.favoriteGenres = favoriteGenres
     }
-    
+
     if (moodPreferences) {
-      user.preferences.moodPreferences = moodPreferences.map((pref: any) => ({
+      preferences.moodPreferences = moodPreferences.map((pref: any) => ({
         ...pref,
         lastSelected: pref.lastSelected || new Date()
       }))
     }
-    
+
     if (ratingThreshold !== undefined) {
-      user.preferences.ratingThreshold = ratingThreshold
+      preferences.ratingThreshold = ratingThreshold
     }
 
+    user.preferences = preferences
     await user.save()
 
     res.json({
@@ -216,14 +211,15 @@ router.put('/preferences', protect, [
 // Get user statistics (admin endpoint)
 router.get('/stats', protect, async (req: AuthRequest, res: any) => {
   try {
-    const userCount = await User.countDocuments()
-    const verifiedUsers = await User.countDocuments({ isEmailVerified: true })
-    const googleUsers = await User.countDocuments({ googleId: { $exists: true } })
-    const appleUsers = await User.countDocuments({ appleId: { $exists: true } })
-    const recentUsers = await User.find()
-      .sort({ createdAt: -1 })
-      .limit(5)
-      .select('email username createdAt')
+    const userCount = await User.count()
+    const verifiedUsers = await User.count({ where: { isEmailVerified: true } })
+    const googleUsers = await User.count({ where: { googleId: { [Op.ne]: null } } })
+    const appleUsers = await User.count({ where: { appleId: { [Op.ne]: null } } })
+    const recentUsers = await User.findAll({
+      order: [['createdAt', 'DESC']],
+      limit: 5,
+      attributes: ['email', 'username', 'createdAt']
+    })
 
     res.json({
       totalUsers: userCount,

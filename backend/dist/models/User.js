@@ -4,117 +4,80 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
-const mongoose_1 = __importDefault(require("mongoose"));
-const userSchema = new mongoose_1.default.Schema({
+const sequelize_1 = require("sequelize");
+const database_1 = __importDefault(require("../config/database"));
+class User extends sequelize_1.Model {
+}
+exports.User = User;
+User.init({
+    id: {
+        type: sequelize_1.DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
     email: {
-        type: String,
-        required: true,
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
         unique: true,
-        lowercase: true,
-        trim: true
+        validate: {
+            isEmail: true,
+        },
     },
     password: {
-        type: String,
-        required: function () {
-            return !this.googleId && !this.appleId;
-        }
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: true, // Allow null for OAuth users
     },
     username: {
-        type: String,
-        required: true,
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
         unique: true,
-        trim: true,
-        minlength: 3,
-        maxlength: 30
     },
     firstName: {
-        type: String,
-        trim: true
+        type: sequelize_1.DataTypes.STRING,
     },
     lastName: {
-        type: String,
-        trim: true
+        type: sequelize_1.DataTypes.STRING,
     },
     avatar: {
-        type: String
+        type: sequelize_1.DataTypes.STRING,
     },
     googleId: {
-        type: String,
-        sparse: true
+        type: sequelize_1.DataTypes.STRING,
+        unique: true,
     },
     appleId: {
-        type: String,
-        sparse: true
+        type: sequelize_1.DataTypes.STRING,
+        unique: true,
     },
     isEmailVerified: {
-        type: Boolean,
-        default: false
+        type: sequelize_1.DataTypes.BOOLEAN,
+        defaultValue: false,
     },
     lastLogin: {
-        type: Date,
-        default: Date.now
+        type: sequelize_1.DataTypes.DATE,
+        defaultValue: sequelize_1.DataTypes.NOW,
     },
     preferences: {
-        favoriteGenres: [{
-                type: String,
-                enum: ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller', 'documentary', 'family']
-            }],
-        moodPreferences: [{
-                mood: {
-                    type: String,
-                    enum: ['happy', 'thriller', 'cozy', 'mindbending', 'romantic', 'epic']
-                },
-                weight: {
-                    type: Number,
-                    default: 1,
-                    min: 0,
-                    max: 5
-                },
-                lastSelected: {
-                    type: Date,
-                    default: Date.now
-                }
-            }],
-        dislikedMovies: [{
-                type: String
-            }],
-        likedMovies: [{
-                type: String
-            }],
-        watchlist: [{
-                type: String
-            }],
-        ratingThreshold: {
-            type: Number,
-            default: 6.0,
-            min: 0,
-            max: 10
-        }
+        type: sequelize_1.DataTypes.JSON,
+        defaultValue: {
+            favoriteGenres: [],
+            moodPreferences: [],
+            dislikedMovies: [],
+            likedMovies: [],
+            watchlist: [],
+            ratingThreshold: 6.0
+        },
     },
-    movieNights: [{
-            type: mongoose_1.default.Schema.Types.ObjectId,
-            ref: 'MovieNight'
-        }],
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    }
 }, {
+    sequelize: database_1.default,
+    modelName: 'User',
+    tableName: 'users',
     timestamps: true,
-    toJSON: {
-        transform: function (doc, ret) {
-            delete ret.password;
-            return ret;
-        }
-    }
+    indexes: [
+        { unique: true, fields: ['email'] },
+        { unique: true, fields: ['username'] },
+        { fields: ['googleId'] },
+        { fields: ['appleId'] },
+    ],
 });
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
-userSchema.index({ googleId: 1 });
-userSchema.index({ appleId: 1 });
-exports.User = mongoose_1.default.model('User', userSchema);
 //# sourceMappingURL=User.js.map

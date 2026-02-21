@@ -40,7 +40,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true)
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true)
     } else {
@@ -85,20 +85,20 @@ app.use('/api/movie-nights', movieNightRoutes)
 
 // Google OAuth routes
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }))
-app.get('/api/auth/google/callback', 
+app.get('/api/auth/google/callback',
   passport.authenticate('google', { session: false }),
   (req, res) => {
-    const token = generateToken((req.user as any)._id.toString())
+    const token = generateToken((req.user as any).id.toString())
     res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`)
   }
 )
 
 // Apple Sign In routes
 app.get('/api/auth/apple', passport.authenticate('apple'))
-app.post('/api/auth/apple/callback', 
+app.post('/api/auth/apple/callback',
   passport.authenticate('apple', { session: false }),
   (req, res) => {
-    const token = generateToken((req.user as any)._id.toString())
+    const token = generateToken((req.user as any).id.toString())
     res.json({ token })
   }
 )

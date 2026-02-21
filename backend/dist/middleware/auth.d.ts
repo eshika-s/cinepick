@@ -6,6 +6,6 @@ export interface AuthRequest extends Request {
     body: any;
     query: any;
 }
-export declare const generateToken: (userId: string) => never;
+export declare const generateToken: (userId: string) => string;
 export declare const protect: (req: AuthRequest, res: Response, next: NextFunction) => Promise<Response<any, Record<string, any>> | undefined>;
 //# sourceMappingURL=auth.d.ts.map

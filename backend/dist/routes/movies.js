@@ -5,10 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const axios_1 = __importDefault(require("axios"));
+const sequelize_1 = require("sequelize");
 const Movie_1 = require("../models/Movie");
 const router = express_1.default.Router();
 // TMDB API configuration
-const TMDB_API_KEY = '2b61a1d5540e6d75f7d38444ab857503';
+const TMDB_API_KEY = process.env.TMDB_API_KEY || '2b61a1d5540e6d75f7d38444ab857503';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 // Get movies from TMDB API (main endpoint for frontend)
 router.get('/', async (req, res) => {
@@ -38,56 +39,110 @@ router.get('/', async (req, res) => {
             }
         }
         console.log('🎬 Fetching from TMDB:', `${TMDB_BASE_URL}${endpoint}`);
-        const response = await axios_1.default.get(`${TMDB_BASE_URL}${endpoint}`, {
-            params,
-            timeout: 10000,
-            headers: {
-                'Accept': 'application/json'
+        // Retry logic for connection issues
+        let retries = 3;
+        let lastError = null;
+        while (retries > 0) {
+            try {
+                const response = await axios_1.default.get(`${TMDB_BASE_URL}${endpoint}`, {
+                    params,
+                    timeout: 15000,
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': 'YMovies/1.0'
+                    },
+                    // Add connection pooling settings
+                    httpAgent: new (require('http').Agent)({ keepAlive: true }),
+                    httpsAgent: new (require('https').Agent)({ keepAlive: true })
+                });
+                console.log('✅ TMDB response received:', response.data.results?.length || 0, 'movies');
+                return res.json({
+                    movies: response.data.results || [],
+                    totalPages: response.data.total_pages || 1,
+                    page: response.data.page || 1
+                });
             }
-        });
-        console.log('✅ TMDB response received:', response.data.results?.length || 0, 'movies');
-        res.json({
-            movies: response.data.results || [],
-            totalPages: response.data.total_pages || 1,
-            page: response.data.page || 1
-        });
+            catch (error) {
+                lastError = error;
+                retries--;
+                if (error.code === 'ECONNRESET' && retries > 0) {
+                    console.log(`⚠️ Connection reset, retrying... (${retries} retries left)`);
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+                    continue;
+                }
+                throw error;
+            }
+        }
+        throw lastError;
     }
     catch (error) {
         console.error('❌ Get movies error:', error.message);
-        console.error('Error details:', error.response?.data || error.code);
+        // Handle specific error cases
+        if (error.code === 'ECONNABORTED') {
+            return res.status(504).json({
+                message: 'Request timeout - TMDB API is slow',
+                error: 'timeout'
+            });
+        }
+        if (error.code === 'ECONNRESET') {
+            return res.status(503).json({
+                message: 'Connection to TMDB API failed. Please try again.',
+                error: 'connection_reset'
+            });
+        }
+        if (error.response?.status === 429) {
+            return res.status(429).json({
+                message: 'Too many requests to TMDB API',
+                error: 'rate_limit'
+            });
+        }
+        if (error.response?.status === 401) {
+            return res.status(500).json({
+                message: 'Invalid TMDB API key',
+                error: 'invalid_api_key'
+            });
+        }
         res.status(500).json({
-            message: 'Server error',
+            message: 'Server error fetching movies',
             error: error.message,
             details: error.response?.data || error.code
         });
     }
 });
-// Search movies
+// Search movies in local database
 router.get('/search', async (req, res) => {
     try {
         const { q, genre, mood, page = 1, limit = 20 } = req.query;
-        const query = {};
+        const where = {};
         if (q) {
-            query.$text = { $search: q };
+            where[sequelize_1.Op.or] = [
+                { title: { [sequelize_1.Op.like]: `%${q}%` } },
+                { overview: { [sequelize_1.Op.like]: `%${q}%` } }
+            ];
         }
         if (genre) {
-            query.genres = genre;
+            // For JSON array in MySQL, we might need JSON_CONTAINS or just Op.like if it's stringified
+            // but Sequelize handles JSON fields. However Op.contains is for postgres.
+            // For MySQL JSON, we can use Op.like if we know the structure or Op.regexp
+            where.genres = { [sequelize_1.Op.like]: `%${genre}%` };
         }
         if (mood) {
-            query.moodTags = mood;
+            where.moodTags = { [sequelize_1.Op.like]: `%${mood}%` };
         }
-        const movies = await Movie_1.Movie.find(query)
-            .sort({ rating: -1, popularity: -1 })
-            .limit(Number(limit) * Number(page))
-            .skip((Number(page) - 1) * Number(limit));
-        const total = await Movie_1.Movie.countDocuments(query);
+        const offset = (Number(page) - 1) * Number(limit);
+        const { count, rows: movies } = await Movie_1.Movie.findAndCountAll({
+            where,
+            order: [['rating', 'DESC'], ['popularity', 'DESC']],
+            limit: Number(limit),
+            offset: offset
+        });
         res.json({
             movies,
             pagination: {
                 page: Number(page),
                 limit: Number(limit),
-                total,
-                pages: Math.ceil(total / Number(limit))
+                total: count,
+                pages: Math.ceil(count / Number(limit))
             }
         });
     }
@@ -99,7 +154,7 @@ router.get('/search', async (req, res) => {
 // Get movie by ID
 router.get('/:id', async (req, res) => {
     try {
-        const movie = await Movie_1.Movie.findById(req.params.id);
+        const movie = await Movie_1.Movie.findByPk(req.params.id);
         if (!movie) {
             return res.status(404).json({ message: 'Movie not found' });
         }
@@ -114,10 +169,12 @@ router.get('/:id', async (req, res) => {
 router.get('/browse/popular', async (req, res) => {
     try {
         const { page = 1, limit = 20 } = req.query;
-        const movies = await Movie_1.Movie.find({})
-            .sort({ popularity: -1, rating: -1 })
-            .limit(Number(limit) * Number(page))
-            .skip((Number(page) - 1) * Number(limit));
+        const offset = (Number(page) - 1) * Number(limit);
+        const movies = await Movie_1.Movie.findAll({
+            order: [['popularity', 'DESC'], ['rating', 'DESC']],
+            limit: Number(limit),
+            offset: offset
+        });
         res.json({ movies });
     }
     catch (error) {
@@ -129,10 +186,12 @@ router.get('/browse/popular', async (req, res) => {
 router.get('/browse/top-rated', async (req, res) => {
     try {
         const { page = 1, limit = 20 } = req.query;
-        const movies = await Movie_1.Movie.find({})
-            .sort({ rating: -1, voteCount: -1 })
-            .limit(Number(limit) * Number(page))
-            .skip((Number(page) - 1) * Number(limit));
+        const offset = (Number(page) - 1) * Number(limit);
+        const movies = await Movie_1.Movie.findAll({
+            order: [['rating', 'DESC'], ['voteCount', 'DESC']],
+            limit: Number(limit),
+            offset: offset
+        });
         res.json({ movies });
     }
     catch (error) {
@@ -145,10 +204,15 @@ router.get('/browse/genre/:genre', async (req, res) => {
     try {
         const { genre } = req.params;
         const { page = 1, limit = 20 } = req.query;
-        const movies = await Movie_1.Movie.find({ genres: genre })
-            .sort({ rating: -1, popularity: -1 })
-            .limit(Number(limit) * Number(page))
-            .skip((Number(page) - 1) * Number(limit));
+        const offset = (Number(page) - 1) * Number(limit);
+        const movies = await Movie_1.Movie.findAll({
+            where: {
+                genres: { [sequelize_1.Op.like]: `%${genre}%` }
+            },
+            order: [['rating', 'DESC'], ['popularity', 'DESC']],
+            limit: Number(limit),
+            offset: offset
+        });
         res.json({ movies });
     }
     catch (error) {

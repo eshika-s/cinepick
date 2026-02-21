@@ -11,7 +11,7 @@ const generateToken = (userId) => {
     if (!secret) {
         throw new Error('JWT_SECRET environment variable is not defined');
     }
-    return jsonwebtoken_1.default.sign({ userId }, secret, { expiresIn: process.env.JWT_EXPIRE || '7d' });
+    return jsonwebtoken_1.default.sign({ userId }, secret, { expiresIn: (process.env.JWT_EXPIRE || '7d') });
 };
 exports.generateToken = generateToken;
 const protect = async (req, res, next) => {
@@ -24,7 +24,7 @@ const protect = async (req, res, next) => {
             return res.status(401).json({ message: 'Access denied. No token provided.' });
         }
         const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
-        const user = await User_1.User.findById(decoded.userId);
+        const user = await User_1.User.findByPk(decoded.userId);
         if (!user) {
             return res.status(401).json({ message: 'Invalid token. User not found.' });
         }

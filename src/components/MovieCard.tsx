@@ -12,13 +12,13 @@ interface MovieCardProps {
   isLiked?: boolean
 }
 
-export default function MovieCard({ 
-  movie, 
-  onMovieSelect, 
-  onLike, 
-  onWatchlistToggle, 
+export default function MovieCard({
+  movie,
+  onMovieSelect,
+  onLike,
+  onWatchlistToggle,
   isInWatchlist = false,
-  isLiked = false 
+  isLiked = false
 }: MovieCardProps) {
   const [imageError, setImageError] = useState(false)
 
@@ -50,16 +50,21 @@ export default function MovieCard({
   }
 
   return (
-    <Card 
-      sx={{ 
+    <Card
+      sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         cursor: 'pointer',
-        transition: 'all 0.3s ease',
+        transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+        backgroundColor: 'rgba(21, 21, 30, 0.6)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.05)',
+        borderRadius: 16,
         '&:hover': {
-          transform: 'scale(1.02)',
-          boxShadow: '0 8px 25px rgba(229, 9, 20, 0.3)',
+          transform: 'translateY(-5px)',
+          borderColor: 'rgba(255, 51, 102, 0.4)',
+          boxShadow: '0 12px 30px -10px rgba(255, 51, 102, 0.3), 0 4px 10px -5px rgba(0, 229, 255, 0.2)',
         }
       }}
       onClick={() => onMovieSelect?.(movie)}
@@ -80,16 +85,16 @@ export default function MovieCard({
           onError={handleImageError}
         />
       </Box>
-      <CardContent sx={{ 
+      <CardContent sx={{
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
         p: 2,
       }}>
-        <Typography 
-          gutterBottom 
-          variant="h6" 
-          component="div" 
+        <Typography
+          gutterBottom
+          variant="h6"
+          component="div"
           noWrap
           sx={{
             fontWeight: 600,
@@ -101,7 +106,7 @@ export default function MovieCard({
         >
           {movie.title}
         </Typography>
-        
+
         <Box display="flex" alignItems="center" gap={1} mb={1}>
           <Rating
             value={(movie.rating / 2) || 0}
@@ -110,23 +115,26 @@ export default function MovieCard({
             size="small"
             sx={{
               '& .MuiRating-iconFilled': {
-                color: '#e50914',
+                color: '#00E5FF',
+              },
+              '& .MuiRating-iconEmpty': {
+                color: 'rgba(255,255,255,0.2)'
               }
             }}
           />
-          <Typography variant="body2" sx={{ color: '#b3b3b3', fontSize: '0.75rem' }}>
+          <Typography variant="body2" sx={{ color: '#B8B8CD', fontSize: '0.75rem' }}>
             ({movie.voteCount?.toLocaleString() || '0'})
           </Typography>
         </Box>
 
-        <Typography variant="body2" sx={{ color: '#b3b3b3', mb: 1, fontSize: '0.8rem' }}>
+        <Typography variant="body2" sx={{ color: '#B8B8CD', mb: 1, fontSize: '0.8rem' }}>
           {new Date(movie.releaseDate).getFullYear()}
         </Typography>
 
-        <Typography 
-          variant="body2" 
-          sx={{ 
-            color: '#b3b3b3', 
+        <Typography
+          variant="body2"
+          sx={{
+            color: '#B8B8CD',
             mb: 2,
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -139,63 +147,68 @@ export default function MovieCard({
           {movie.overview || 'No description available'}
         </Typography>
 
-        <Box sx={{ 
-            display: 'flex', 
-            flexWrap: 'wrap', 
-            gap: 0.5, 
-            mt: 'auto',
-            mb: 1
-          }}>
-            {movie.genres?.slice(0, 2).map((genre, index) => (
-              <Chip
-                key={index}
-                label={genre}
-                size="small"
-                sx={{
-                  backgroundColor: '#333',
-                  color: '#ffffff',
-                  border: '1px solid #444',
-                  fontSize: '0.7rem',
-                  fontWeight: 500,
-                  height: 24,
-                }}
-              />
-            ))}
-          </Box>
+        <Box sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 0.5,
+          mt: 'auto',
+          mb: 1
+        }}>
+          {movie.genres?.slice(0, 2).map((genre, index) => (
+            <Chip
+              key={index}
+              label={genre}
+              size="small"
+              sx={{
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                color: '#ffffff',
+                border: '1px solid rgba(255,255,255,0.1)',
+                backdropFilter: 'blur(4px)',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                height: 24,
+              }}
+            />
+          ))}
+        </Box>
 
-          <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
-            {onLike && (
-              <IconButton
-                size="small"
-                onClick={handleLikeClick}
-                sx={{
-                  color: isLiked ? '#e50914' : '#666',
-                  '&:hover': {
-                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                    color: '#e50914',
-                  }
-                }}
-              >
-                <Favorite fontSize="small" />
-              </IconButton>
-            )}
-            
-            {onWatchlistToggle && (
-              <IconButton
-                size="small"
-                onClick={handleWatchlistClick}
-                sx={{
-                  color: isInWatchlist ? '#e50914' : '#666',
-                  '&:hover': {
-                    backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                    color: '#e50914',
-                  }
-                }}
-              >
-                {isInWatchlist ? <Bookmark fontSize="small" /> : <BookmarkBorder fontSize="small" />}
-              </IconButton>
-            )}
-          </Box>
+        <Box sx={{ display: 'flex', gap: 1, mt: 'auto' }}>
+          {onLike && (
+            <IconButton
+              size="small"
+              onClick={handleLikeClick}
+              sx={{
+                color: isLiked ? '#FF3366' : '#B8B8CD',
+                backdropFilter: 'blur(4px)',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 51, 102, 0.15)',
+                  color: '#FF3366',
+                  transform: 'scale(1.1)',
+                }
+              }}
+            >
+              <Favorite fontSize="small" />
+            </IconButton>
+          )}
+
+          {onWatchlistToggle && (
+            <IconButton
+              size="small"
+              onClick={handleWatchlistClick}
+              sx={{
+                color: isInWatchlist ? '#00E5FF' : '#B8B8CD',
+                backdropFilter: 'blur(4px)',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 229, 255, 0.15)',
+                  color: '#00E5FF',
+                  transform: 'scale(1.1)',
+                }
+              }}
+            >
+              {isInWatchlist ? <Bookmark fontSize="small" /> : <BookmarkBorder fontSize="small" />}
+            </IconButton>
+          )}
+        </Box>
       </CardContent>
     </Card>
   )

@@ -16,7 +16,7 @@ passport_1.default.serializeUser((user, done) => {
 });
 passport_1.default.deserializeUser(async (id, done) => {
     try {
-        const user = await User_1.User.findById(id);
+        const user = await User_1.User.findByPk(id);
         done(null, user);
     }
     catch (error) {
@@ -31,11 +31,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
     }, async (accessToken, refreshToken, profile, done) => {
         try {
-            let user = await User_1.User.findOne({ googleId: profile.id });
+            let user = await User_1.User.findOne({ where: { googleId: profile.id } });
             if (user) {
                 return done(null, user);
             }
-            user = await User_1.User.findOne({ email: profile.emails[0].value });
+            user = await User_1.User.findOne({ where: { email: profile.emails[0].value } });
             if (user) {
                 user.googleId = profile.id;
                 user.avatar = profile.photos[0].value;
@@ -43,7 +43,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 await user.save();
                 return done(null, user);
             }
-            const newUser = new User_1.User({
+            const newUser = await User_1.User.create({
                 googleId: profile.id,
                 email: profile.emails[0].value,
                 username: profile.emails[0].value.split('@')[0],
@@ -52,7 +52,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
                 avatar: profile.photos[0].value,
                 isEmailVerified: true
             });
-            await newUser.save();
             done(null, newUser);
         }
         catch (error) {
@@ -69,16 +68,16 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
         clientID: process.env.APPLE_CLIENT_ID,
         teamID: process.env.APPLE_TEAM_ID,
         keyID: process.env.APPLE_KEY_ID,
-        privateKeyPath: process.env.APPLE_PRIVATE_KEY_PATH,
+        privateKeyLocation: process.env.APPLE_PRIVATE_KEY_PATH,
         callbackURL: process.env.APPLE_CALLBACK_URL || 'http://localhost:5000/api/auth/apple/callback',
     }, async (accessToken, refreshToken, profile, done) => {
         try {
-            let user = await User_1.User.findOne({ appleId: profile.id });
+            let user = await User_1.User.findOne({ where: { appleId: profile.id } });
             if (user) {
                 return done(null, user);
             }
             if (profile.email) {
-                user = await User_1.User.findOne({ email: profile.email });
+                user = await User_1.User.findOne({ where: { email: profile.email } });
                 if (user) {
                     user.appleId = profile.id;
                     user.isEmailVerified = true;
@@ -86,7 +85,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
                     return done(null, user);
                 }
             }
-            const newUser = new User_1.User({
+            const newUser = await User_1.User.create({
                 appleId: profile.id,
                 email: profile.email || `${profile.id}@privaterelay.appleid.com`,
                 username: `apple_user_${profile.id.slice(-8)}`,
@@ -94,7 +93,6 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
                 lastName: profile.name?.lastName,
                 isEmailVerified: true
             });
-            await newUser.save();
             done(null, newUser);
         }
         catch (error) {
@@ -110,7 +108,7 @@ passport_1.default.use(new passport_local_1.Strategy({
     usernameField: 'email'
 }, async (email, password, done) => {
     try {
-        const user = await User_1.User.findOne({ email });
+        const user = await User_1.User.findOne({ where: { email } });
         if (!user) {
             return done(null, false, { message: 'Invalid email or password' });
         }

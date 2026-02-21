@@ -1,4 +1,5 @@
 import express from 'express'
+import { Op } from 'sequelize'
 import { protect, AuthRequest } from '../middleware/auth'
 import { User } from '../models/User'
 import { Movie } from '../models/Movie'
@@ -10,44 +11,45 @@ router.get('/mood/:mood', protect, async (req: AuthRequest, res) => {
   try {
     const { mood } = req.params
     const validMoods = ['happy', 'thriller', 'cozy', 'mindbending', 'romantic', 'epic']
-    
+
     if (!validMoods.includes(mood)) {
       return res.status(400).json({ message: 'Invalid mood' })
     }
 
     // Update user's mood preference
-    const user = await User.findById(req.user._id)
-    
+    const user = await User.findByPk(req.user.id)
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    if (!user.preferences) {
-      user.preferences = {
-        favoriteGenres: [],
-        moodPreferences: [] as any,
-        dislikedMovies: [],
-        likedMovies: [],
-        watchlist: [],
-        ratingThreshold: 6.0
-      }
+    const preferences = user.preferences || {
+      favoriteGenres: [],
+      moodPreferences: [],
+      dislikedMovies: [],
+      likedMovies: [],
+      watchlist: [],
+      ratingThreshold: 6.0
     }
 
-    const existingMoodPref = user.preferences?.moodPreferences?.find(p => p.mood === mood)
-    
-    if (existingMoodPref) {
-      existingMoodPref.weight = Math.min(existingMoodPref.weight + 0.1, 5)
-      existingMoodPref.lastSelected = new Date()
-    } else {
-      if (user.preferences) {
-        user.preferences.moodPreferences.push({
-          mood,
-          weight: 1,
-          lastSelected: new Date()
-        })
+    const moodPreferences = [...(preferences.moodPreferences || [])]
+    const existingIndex = moodPreferences.findIndex((p: any) => p.mood === mood)
+
+    if (existingIndex !== -1) {
+      moodPreferences[existingIndex] = {
+        ...moodPreferences[existingIndex],
+        weight: Math.min(moodPreferences[existingIndex].weight + 0.1, 5),
+        lastSelected: new Date()
       }
+    } else {
+      moodPreferences.push({
+        mood,
+        weight: 1,
+        lastSelected: new Date()
+      })
     }
-    
+
+    user.preferences = { ...preferences, moodPreferences }
     await user.save()
 
     // Get movies based on mood
@@ -61,21 +63,27 @@ router.get('/mood/:mood', protect, async (req: AuthRequest, res) => {
     }
 
     const genres = moodGenreMap[mood as keyof typeof moodGenreMap]
-    
-    const movies = await Movie.find({
-      $or: [
-        { moodTags: mood },
-        { genres: { $in: genres } }
-      ],
-      rating: { $gte: user.preferences?.ratingThreshold || 6.0 }
+
+    const movies = await Movie.findAll({
+      where: {
+        [Op.and]: [
+          {
+            [Op.or]: [
+              { moodTags: { [Op.like]: `%${mood}%` } },
+              { genres: { [Op.or]: genres.map(g => ({ [Op.like]: `%${g}%` })) } }
+            ]
+          },
+          { rating: { [Op.gte]: preferences.ratingThreshold || 6.0 } }
+        ]
+      },
+      order: [['rating', 'DESC'], ['popularity', 'DESC']],
+      limit: 20
     })
-    .sort({ rating: -1, popularity: -1 })
-    .limit(20)
 
     res.json({
       mood,
       movies,
-      userWeight: user.preferences?.moodPreferences?.find(p => p.mood === mood)?.weight || 1
+      userWeight: moodPreferences.find((p: any) => p.mood === mood)?.weight || 1
     })
   } catch (error) {
     console.error('Mood recommendations error:', error)
@@ -86,48 +94,51 @@ router.get('/mood/:mood', protect, async (req: AuthRequest, res) => {
 // Get personalized recommendations based on user preferences
 router.get('/personalized', protect, async (req: AuthRequest, res) => {
   try {
-    const user = await User.findById(req.user._id)
-    
+    const user = await User.findByPk(req.user.id)
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    if (!user.preferences) {
-      user.preferences = {
-        favoriteGenres: [],
-        moodPreferences: [] as any,
-        dislikedMovies: [],
-        likedMovies: [],
-        watchlist: [],
-        ratingThreshold: 6.0
-      }
+    const preferences = user.preferences || {
+      favoriteGenres: [],
+      moodPreferences: [],
+      dislikedMovies: [],
+      likedMovies: [],
+      watchlist: [],
+      ratingThreshold: 6.0
     }
-    
+
     // Get user's preferred genres and moods
-    const favoriteGenres = user.preferences?.favoriteGenres || []
-    const moodPreferences = (user.preferences?.moodPreferences || [])
+    const favoriteGenres = preferences.favoriteGenres || []
+    const moodPreferences = (preferences.moodPreferences || [])
       .sort((a: any, b: any) => b.weight - a.weight)
       .slice(0, 3)
       .map((p: any) => p.mood)
 
     // Exclude disliked movies
-    const excludedMovies = user.preferences?.dislikedMovies || []
+    const excludedMovies = preferences.dislikedMovies || []
 
-    const query: any = {
-      _id: { $nin: excludedMovies },
-      rating: { $gte: user.preferences?.ratingThreshold || 6.0 }
+    const where: any = {
+      id: { [Op.notIn]: excludedMovies.length > 0 ? excludedMovies : [-1] },
+      rating: { [Op.gte]: preferences.ratingThreshold || 6.0 }
     }
 
-    if (favoriteGenres.length > 0) {
-      query.$or = [
-        { genres: { $in: favoriteGenres } },
-        { moodTags: { $in: moodPreferences } }
-      ]
+    if (favoriteGenres.length > 0 || moodPreferences.length > 0) {
+      where[Op.or] = []
+      if (favoriteGenres.length > 0) {
+        where[Op.or].push({ genres: { [Op.or]: favoriteGenres.map((g: string) => ({ [Op.like]: `%${g}%` })) } })
+      }
+      if (moodPreferences.length > 0) {
+        where[Op.or].push({ moodTags: { [Op.or]: moodPreferences.map((m: string) => ({ [Op.like]: `%${m}%` })) } })
+      }
     }
 
-    const movies = await Movie.find(query)
-      .sort({ rating: -1, popularity: -1 })
-      .limit(20)
+    const movies = await Movie.findAll({
+      where,
+      order: [['rating', 'DESC'], ['popularity', 'DESC']],
+      limit: 20
+    })
 
     res.json({ movies })
   } catch (error) {
@@ -142,39 +153,41 @@ router.post('/movie/:movieId/like', protect, async (req: AuthRequest, res: any) 
     const { movieId } = req.params
     const { liked } = req.body
 
-    const user = await User.findById(req.user._id)
-    
+    const user = await User.findByPk(req.user.id)
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    if (!user.preferences) {
-      user.preferences = {
-        favoriteGenres: [],
-        moodPreferences: [] as any,
-        dislikedMovies: [],
-        likedMovies: [],
-        watchlist: [],
-        ratingThreshold: 6.0
-      }
+    const preferences = user.preferences || {
+      favoriteGenres: [],
+      moodPreferences: [],
+      dislikedMovies: [],
+      likedMovies: [],
+      watchlist: [],
+      ratingThreshold: 6.0
     }
+
+    let likedMovies = preferences.likedMovies || []
+    let dislikedMovies = preferences.dislikedMovies || []
 
     if (liked) {
       // Add to liked movies, remove from disliked
-      user.preferences!.likedMovies = [...new Set([...(user.preferences?.likedMovies || []), movieId])]
-      user.preferences!.dislikedMovies = (user.preferences?.dislikedMovies || []).filter(id => id.toString() !== movieId)
+      likedMovies = [...new Set([...likedMovies, movieId])]
+      dislikedMovies = dislikedMovies.filter((id: string) => id.toString() !== movieId)
     } else {
       // Add to disliked movies, remove from liked
-      user.preferences!.dislikedMovies = [...new Set([...(user.preferences?.dislikedMovies || []), movieId])]
-      user.preferences!.likedMovies = (user.preferences?.likedMovies || []).filter(id => id.toString() !== movieId)
+      dislikedMovies = [...new Set([...dislikedMovies, movieId])]
+      likedMovies = likedMovies.filter((id: string) => id.toString() !== movieId)
     }
 
+    user.preferences = { ...preferences, likedMovies, dislikedMovies }
     await user.save()
 
     res.json({
       message: `Movie ${liked ? 'liked' : 'disliked'} successfully`,
-      likedMovies: user.preferences?.likedMovies || [],
-      dislikedMovies: user.preferences?.dislikedMovies || []
+      likedMovies: user.preferences.likedMovies,
+      dislikedMovies: user.preferences.dislikedMovies
     })
   } catch (error) {
     console.error('Like/dislike error:', error)
@@ -188,34 +201,35 @@ router.post('/movie/:movieId/watchlist', protect, async (req: AuthRequest, res: 
     const { movieId } = req.params
     const { add } = req.body
 
-    const user = await User.findById(req.user._id)
-    
+    const user = await User.findByPk(req.user.id)
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    if (!user.preferences) {
-      user.preferences = {
-        favoriteGenres: [],
-        moodPreferences: [] as any,
-        dislikedMovies: [],
-        likedMovies: [],
-        watchlist: [],
-        ratingThreshold: 6.0
-      }
+    const preferences = user.preferences || {
+      favoriteGenres: [],
+      moodPreferences: [],
+      dislikedMovies: [],
+      likedMovies: [],
+      watchlist: [],
+      ratingThreshold: 6.0
     }
+
+    let watchlist = preferences.watchlist || []
 
     if (add) {
-      user.preferences!.watchlist = [...new Set([...(user.preferences?.watchlist || []), movieId])]
+      watchlist = [...new Set([...watchlist, movieId])]
     } else {
-      user.preferences!.watchlist = (user.preferences?.watchlist || []).filter(id => id.toString() !== movieId)
+      watchlist = watchlist.filter((id: string) => id.toString() !== movieId)
     }
 
+    user.preferences = { ...preferences, watchlist }
     await user.save()
 
     res.json({
       message: `Movie ${add ? 'added to' : 'removed from'} watchlist`,
-      watchlist: user.preferences?.watchlist || []
+      watchlist: user.preferences.watchlist
     })
   } catch (error) {
     console.error('Watchlist error:', error)
@@ -226,16 +240,16 @@ router.post('/movie/:movieId/watchlist', protect, async (req: AuthRequest, res: 
 // Get user's mood preferences
 router.get('/mood-preferences', protect, async (req: AuthRequest, res: any) => {
   try {
-    const user = await User.findById(req.user._id)
-    
+    const user = await User.findByPk(req.user.id)
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
     const moodPreferences = user.preferences?.moodPreferences || []
-    
+
     res.json({
-      moodPreferences: moodPreferences.sort((a, b) => b.weight - a.weight)
+      moodPreferences: moodPreferences.sort((a: any, b: any) => b.weight - a.weight)
     })
   } catch (error) {
     console.error('Get mood preferences error:', error)

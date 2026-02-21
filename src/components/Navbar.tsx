@@ -29,14 +29,15 @@ import { useAuth } from '../contexts/AuthContext'
 
 interface NavbarProps {
   onSearch?: (query: string) => void
+  activeView?: string
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
+const Navbar: React.FC<NavbarProps> = ({ onSearch, activeView }) => {
   const { state, logout } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [showSearch, setShowSearch] = useState(false)
-  
+
   const trigger = useScrollTrigger({
     threshold: 100,
   })
@@ -69,7 +70,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
       'Movie Night Planner': 'planner',
       'Settings': 'settings'
     } as const
-    
+
     const view = viewMap[section as keyof typeof viewMap]
     if (view) {
       // Dispatch custom event for App component
@@ -113,10 +114,14 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
             component="div"
             onClick={handleLogoClick}
             sx={{
-              fontWeight: 700,
+              fontWeight: 800,
               fontSize: { xs: '1.5rem', md: '2rem' },
-              color: '#e50914',
-              letterSpacing: '-0.5px',
+              color: '#FF3366',
+              background: 'linear-gradient(135deg, #FF3366 0%, #00E5FF 100%)',
+              backgroundClip: 'text',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '-1px',
               cursor: 'pointer',
               transition: 'all 0.3s ease',
               '&:hover': {
@@ -129,95 +134,103 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
         </Box>
 
         {/* Navigation Items */}
-        <Box sx={{ 
-          display: { xs: 'none', md: 'flex' }, 
-          alignItems: 'center', 
-          gap: 3, 
+        <Box sx={{
+          display: { xs: 'none', md: 'flex' },
+          alignItems: 'center',
+          gap: 3,
           ml: 4,
-          flexGrow: 1 
+          flexGrow: 1
         }}>
           <Button
             onClick={() => handleNavigation('Browse')}
             startIcon={<Home sx={{ fontSize: 18 }} />}
             sx={{
-              color: '#ffffff',
-              fontWeight: 500,
+              color: activeView === 'browse' ? '#FF3366' : '#ffffff',
+              background: activeView === 'browse' ? 'rgba(255, 51, 102, 0.1)' : 'transparent',
+              fontWeight: activeView === 'browse' ? 700 : 500,
               fontSize: '0.95rem',
               textTransform: 'none',
               px: 2,
               py: 1,
               borderRadius: 2,
-              transition: 'all 0.3s ease',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
               '&:hover': {
-                backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                color: '#ffffff',
+                backgroundColor: 'rgba(255, 51, 102, 0.15)',
+                color: '#FF3366',
                 transform: 'translateY(-2px)',
+                boxShadow: '0 4px 15px rgba(255, 51, 102, 0.2)'
               },
             }}
           >
             Browse
           </Button>
-          
+
           <Button
             onClick={() => handleNavigation('Mood Picker')}
             startIcon={<Movie sx={{ fontSize: 18 }} />}
             sx={{
-              color: '#ffffff',
-              fontWeight: 500,
+              color: activeView === 'mood' ? '#00E5FF' : '#ffffff',
+              background: activeView === 'mood' ? 'rgba(0, 229, 255, 0.1)' : 'transparent',
+              fontWeight: activeView === 'mood' ? 700 : 500,
               fontSize: '0.95rem',
               textTransform: 'none',
               px: 2,
               py: 1,
               borderRadius: 2,
-              transition: 'all 0.3s ease',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
               '&:hover': {
-                backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                color: '#ffffff',
+                backgroundColor: 'rgba(0, 229, 255, 0.15)',
+                color: '#00E5FF',
                 transform: 'translateY(-2px)',
+                boxShadow: '0 4px 15px rgba(0, 229, 255, 0.2)'
               },
             }}
           >
             Mood Picker
           </Button>
-          
+
           <Button
             onClick={() => handleNavigation('Movie Discovery')}
             startIcon={<TrendingUp sx={{ fontSize: 18 }} />}
             sx={{
-              color: '#ffffff',
-              fontWeight: 500,
+              color: activeView === 'discovery' ? '#FF3366' : '#ffffff',
+              background: activeView === 'discovery' ? 'rgba(255, 51, 102, 0.1)' : 'transparent',
+              fontWeight: activeView === 'discovery' ? 700 : 500,
               fontSize: '0.95rem',
               textTransform: 'none',
               px: 2,
               py: 1,
               borderRadius: 2,
-              transition: 'all 0.3s ease',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
               '&:hover': {
-                backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                color: '#ffffff',
+                backgroundColor: 'rgba(255, 51, 102, 0.15)',
+                color: '#FF3366',
                 transform: 'translateY(-2px)',
+                boxShadow: '0 4px 15px rgba(255, 51, 102, 0.2)'
               },
             }}
           >
             Movie Discovery
           </Button>
-          
+
           <Button
             onClick={() => handleNavigation('Movie Night Planner')}
             startIcon={<BookmarkBorder sx={{ fontSize: 18 }} />}
             sx={{
-              color: '#ffffff',
-              fontWeight: 500,
+              color: activeView === 'planner' ? '#00E5FF' : '#ffffff',
+              background: activeView === 'planner' ? 'rgba(0, 229, 255, 0.1)' : 'transparent',
+              fontWeight: activeView === 'planner' ? 700 : 500,
               fontSize: '0.95rem',
               textTransform: 'none',
               px: 2,
               py: 1,
               borderRadius: 2,
-              transition: 'all 0.3s ease',
+              transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
               '&:hover': {
-                backgroundColor: 'rgba(229, 9, 20, 0.1)',
-                color: '#ffffff',
+                backgroundColor: 'rgba(0, 229, 255, 0.15)',
+                color: '#00E5FF',
                 transform: 'translateY(-2px)',
+                boxShadow: '0 4px 15px rgba(0, 229, 255, 0.2)'
               },
             }}
           >
@@ -226,8 +239,8 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
         </Box>
 
         {/* Search Bar */}
-        <Box sx={{ 
-          display: { xs: showSearch ? 'flex' : 'none', md: 'flex' }, 
+        <Box sx={{
+          display: { xs: showSearch ? 'flex' : 'none', md: 'flex' },
           alignItems: 'center',
           flexGrow: { xs: 0, md: 1 },
           maxWidth: { xs: '100%', md: 400 },
@@ -242,7 +255,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#b3b3b3', fontSize: 20 }} />
+                  <SearchIcon sx={{ color: '#B8B8CD', fontSize: 20 }} />
                 </InputAdornment>
               ),
             }}
@@ -269,7 +282,7 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {/* Mobile Search Toggle */}
           <IconButton
-            sx={{ 
+            sx={{
               display: { xs: 'flex', md: 'none' },
               color: '#ffffff',
               '&:hover': {
@@ -288,8 +301,9 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
                 <Typography
                   variant="body2"
                   sx={{
-                    color: '#b3b3b3',
+                    color: '#B8B8CD',
                     display: { xs: 'none', sm: 'block' },
+                    fontWeight: 500,
                   }}
                 >
                   {state.user?.firstName || state.user?.username}
@@ -305,11 +319,12 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
                 >
                   <Avatar
                     sx={{
-                      width: 32,
-                      height: 32,
-                      bgcolor: '#e50914',
-                      fontSize: '0.875rem',
-                      fontWeight: 600,
+                      width: 36,
+                      height: 36,
+                      background: 'linear-gradient(135deg, #FF3366 0%, #FF6B8B 100%)',
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      boxShadow: '0 4px 10px rgba(255, 51, 102, 0.3)'
                     }}
                   >
                     {(state.user?.firstName || state.user?.username || 'U').charAt(0).toUpperCase()}
@@ -324,10 +339,13 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
                 TransitionComponent={Fade}
                 PaperProps={{
                   sx: {
-                    backgroundColor: '#1f1f1f',
-                    border: '1px solid #333',
-                    mt: 1,
-                    minWidth: 200,
+                    backgroundColor: 'rgba(21, 21, 30, 0.95)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
+                    mt: 1.5,
+                    minWidth: 220,
+                    borderRadius: 3,
                   },
                 }}
               >
@@ -373,15 +391,17 @@ const Navbar: React.FC<NavbarProps> = ({ onSearch }) => {
             <Button
               variant="contained"
               sx={{
-                backgroundColor: '#e50914',
+                background: 'linear-gradient(135deg, #FF3366 0%, #FF6B8B 100%)',
                 color: '#ffffff',
-                fontWeight: 500,
+                fontWeight: 600,
                 px: 3,
                 py: 1,
+                borderRadius: 3,
+                boxShadow: '0 4px 14px 0 rgba(255, 51, 102, 0.39)',
                 '&:hover': {
-                  backgroundColor: '#b20710',
+                  background: 'linear-gradient(135deg, #E60039 0%, #FF3366 100%)',
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(229, 9, 20, 0.4)',
+                  boxShadow: '0 6px 20px rgba(255, 51, 102, 0.5)',
                 },
               }}
               onClick={() => {

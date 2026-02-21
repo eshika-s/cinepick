@@ -3,73 +3,65 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MovieNight = void 0;
-const mongoose_1 = __importDefault(require("mongoose"));
-const movieNightSchema = new mongoose_1.default.Schema({
+exports.MovieNightMovies = exports.MovieNight = void 0;
+const sequelize_1 = require("sequelize");
+const database_1 = __importDefault(require("../config/database"));
+const User_1 = require("./User");
+const Movie_1 = require("./Movie");
+class MovieNight extends sequelize_1.Model {
+}
+exports.MovieNight = MovieNight;
+MovieNight.init({
+    id: {
+        type: sequelize_1.DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true,
+    },
     title: {
-        type: String,
-        required: true,
-        trim: true
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
     },
     date: {
-        type: Date,
-        required: true
+        type: sequelize_1.DataTypes.DATE,
+        allowNull: false,
     },
     time: {
-        type: String,
-        required: true
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: false,
     },
-    host: {
-        type: mongoose_1.default.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
+    hostId: {
+        type: sequelize_1.DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: User_1.User,
+            key: 'id',
+        },
     },
-    guests: [{
-            name: {
-                type: String,
-                required: true
-            },
-            email: {
-                type: String,
-                trim: true,
-                lowercase: true
-            },
-            status: {
-                type: String,
-                enum: ['pending', 'confirmed', 'declined'],
-                default: 'pending'
-            }
-        }],
-    movies: [{
-            type: mongoose_1.default.Schema.Types.ObjectId,
-            ref: 'Movie'
-        }],
+    guests: {
+        type: sequelize_1.DataTypes.JSON,
+        defaultValue: [],
+    },
     theme: {
-        type: String,
-        enum: ['Classic Movie Night', 'Horror Marathon', 'Comedy Fest', 'Action Adventure', 'Romantic Evening', 'Sci-Fi Journey', 'Documentary Night', 'Family Fun']
+        type: sequelize_1.DataTypes.STRING,
     },
     notes: {
-        type: String,
-        trim: true
+        type: sequelize_1.DataTypes.TEXT,
     },
     status: {
-        type: String,
-        enum: ['planned', 'ongoing', 'completed', 'cancelled'],
-        default: 'planned'
+        type: sequelize_1.DataTypes.ENUM('planned', 'ongoing', 'completed', 'cancelled'),
+        defaultValue: 'planned',
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    }
 }, {
-    timestamps: true
+    sequelize: database_1.default,
+    modelName: 'MovieNight',
+    tableName: 'movie_nights',
+    timestamps: true,
 });
-movieNightSchema.index({ host: 1 });
-movieNightSchema.index({ date: 1 });
-movieNightSchema.index({ status: 1 });
-exports.MovieNight = mongoose_1.default.model('MovieNight', movieNightSchema);
+// Define associations
+MovieNight.belongsTo(User_1.User, { as: 'host', foreignKey: 'hostId' });
+User_1.User.hasMany(MovieNight, { as: 'hostedMovieNights', foreignKey: 'hostId' });
+// Many-to-Many association for MovieNight and Movie
+exports.MovieNightMovies = database_1.default.define('MovieNightMovies', {}, { timestamps: false });
+MovieNight.belongsToMany(Movie_1.Movie, { through: exports.MovieNightMovies, as: 'movies' });
+Movie_1.Movie.belongsToMany(MovieNight, { through: exports.MovieNightMovies, as: 'movieNights' });
 //# sourceMappingURL=MovieNight.js.map

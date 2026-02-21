@@ -1,54 +1,42 @@
-import mongoose from 'mongoose'
+import { Sequelize } from 'sequelize';
+import dotenv from 'dotenv';
 
-const connection: { isConnected?: boolean; retryCount?: number } = {}
+dotenv.config();
+
+const sequelize = new Sequelize(
+  process.env.DB_NAME || 'cinepick',
+  process.env.DB_USER || 'root',
+  process.env.DB_PASSWORD || '',
+  {
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '3306'),
+    dialect: 'mysql',
+    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
+    }
+  }
+);
 
 export const connectToDb = async () => {
   try {
-    if (connection.isConnected) return
+    console.log('🔌 Connecting to MySQL...');
+    await sequelize.authenticate();
+    console.log('✅ Connected to MySQL successfully!');
     
-    console.log('🔌 Connecting to MongoDB...')
-    
-    const db = await mongoose.connect(process.env.MONGODB_URI!, {
-      serverSelectionTimeoutMS: 10000,
-      socketTimeoutMS: 45000,
-    })
-    
-    connection.isConnected = db.connections[0].readyState === 1
-    connection.retryCount = 0
-    
-    console.log('✅ Connected to MongoDB successfully!')
-    console.log(`📊 Database: ${db.connection.name}`)
-    
-    // Handle connection errors
-    mongoose.connection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err)
-    })
-    
-    mongoose.connection.on('disconnected', () => {
-      console.log('⚠️ MongoDB disconnected')
-      connection.isConnected = false
-    })
-    
-    mongoose.connection.on('reconnected', () => {
-      console.log('🔄 MongoDB reconnected')
-      connection.isConnected = true
-    })
-    
-  } catch (error) {
-    console.error('❌ Error connecting to MongoDB:', error)
-    
-    connection.retryCount = (connection.retryCount || 0) + 1
-    
-    if (connection.retryCount < 5) {
-      console.log(`🔄 Retrying connection in 5 seconds... (Attempt ${connection.retryCount}/5)`)
-      setTimeout(connectToDb, 5000)
-    } else {
-      console.error('💥 Max retry attempts reached. Please check your MongoDB connection.')
-      console.log('🔧 Troubleshooting tips:')
-      console.log('   1. Check if your IP is whitelisted in MongoDB Atlas')
-      console.log('   2. Verify your MongoDB URI is correct')
-      console.log('   3. Check your internet connection')
-      console.log('   4. Make sure MongoDB Atlas cluster is running')
+    // Sync models
+    // In production, you might want to use migrations instead of sync
+    if (process.env.NODE_ENV === 'development') {
+      await sequelize.sync({ alter: true });
+      console.log('📊 Database models synced');
     }
+  } catch (error) {
+    console.error('❌ Error connecting to MySQL:', error);
+    process.exit(1);
   }
-}
+};
+
+export default sequelize;

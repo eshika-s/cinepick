@@ -1,70 +1,97 @@
-import mongoose from 'mongoose'
+import { Model, DataTypes } from 'sequelize';
+import sequelize from '../config/database';
 
-const movieSchema = new mongoose.Schema({
+export class Movie extends Model {
+  public id!: number;
+  public tmdbId!: number;
+  public title!: string;
+  public overview!: string;
+  public posterUrl?: string;
+  public backdropUrl?: string;
+  public releaseDate?: Date;
+  public rating?: number;
+  public voteCount!: number;
+  public genres!: string[];
+  public moodTags!: string[];
+  public runtime?: number;
+  public language!: string;
+  public adult!: boolean;
+  public popularity!: number;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+Movie.init({
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
   tmdbId: {
-    type: Number,
-    required: true,
-    unique: true
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    unique: true,
   },
   title: {
-    type: String,
-    required: true,
-    trim: true
+    type: DataTypes.STRING,
+    allowNull: false,
   },
   overview: {
-    type: String,
-    required: true
+    type: DataTypes.TEXT,
+    allowNull: false,
   },
   posterUrl: {
-    type: String
+    type: DataTypes.STRING,
   },
   backdropUrl: {
-    type: String
+    type: DataTypes.STRING,
   },
   releaseDate: {
-    type: Date
+    type: DataTypes.DATE,
   },
   rating: {
-    type: Number,
-    min: 0,
-    max: 10
+    type: DataTypes.FLOAT,
+    validate: {
+      min: 0,
+      max: 10,
+    },
   },
   voteCount: {
-    type: Number,
-    default: 0
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
   },
-  genres: [{
-    type: String,
-    enum: ['action', 'adventure', 'comedy', 'drama', 'fantasy', 'horror', 'mystery', 'romance', 'sci-fi', 'thriller', 'documentary', 'family']
-  }],
-  moodTags: [{
-    type: String,
-    enum: ['happy', 'thriller', 'cozy', 'mindbending', 'romantic', 'epic']
-  }],
+  genres: {
+    type: DataTypes.JSON, // Storing as JSON array
+    defaultValue: [],
+  },
+  moodTags: {
+    type: DataTypes.JSON, // Storing as JSON array
+    defaultValue: [],
+  },
   runtime: {
-    type: Number
+    type: DataTypes.INTEGER,
   },
   language: {
-    type: String,
-    default: 'en'
+    type: DataTypes.STRING,
+    defaultValue: 'en',
   },
   adult: {
-    type: Boolean,
-    default: false
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
   popularity: {
-    type: Number,
-    default: 0
-  }
+    type: DataTypes.FLOAT,
+    defaultValue: 0,
+  },
 }, {
-  timestamps: true
-})
-
-movieSchema.index({ tmdbId: 1 })
-movieSchema.index({ title: 'text', overview: 'text' })
-movieSchema.index({ genres: 1 })
-movieSchema.index({ moodTags: 1 })
-movieSchema.index({ rating: -1 })
-movieSchema.index({ popularity: -1 })
-
-export const Movie = mongoose.model('Movie', movieSchema)
+  sequelize,
+  modelName: 'Movie',
+  tableName: 'movies',
+  timestamps: true,
+  indexes: [
+    { unique: true, fields: ['tmdbId'] },
+    { fields: ['title'] },
+    { fields: ['rating'] },
+    { fields: ['popularity'] },
+  ],
+});

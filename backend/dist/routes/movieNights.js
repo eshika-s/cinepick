@@ -5,9 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const express_validator_1 = require("express-validator");
+const sequelize_1 = require("sequelize");
 const auth_1 = require("../middleware/auth");
 const MovieNight_1 = require("../models/MovieNight");
-const User_1 = require("../models/User");
 const Movie_1 = require("../models/Movie");
 const router = express_1.default.Router();
 // Create a new movie night
@@ -25,23 +25,16 @@ router.post('/', auth_1.protect, [
             return res.status(400).json({ errors: errors.array() });
         }
         const { title, date, time, guests, theme, notes } = req.body;
-        const movieNight = new MovieNight_1.MovieNight({
+        const movieNight = await MovieNight_1.MovieNight.create({
             title,
             date,
             time,
-            host: req.user._id,
+            hostId: req.user.id,
             guests: guests || [],
-            movies: [],
             theme,
-            notes
+            notes,
+            status: 'planned'
         });
-        await movieNight.save();
-        // Add to user's movie nights
-        const user = await User_1.User.findById(req.user._id);
-        if (user) {
-            user.movieNights.push(movieNight._id);
-            await user.save();
-        }
         res.status(201).json({
             message: 'Movie night created successfully',
             movieNight
@@ -57,16 +50,23 @@ router.get('/', auth_1.protect, async (req, res) => {
     try {
         const { status } = req.query;
         const now = new Date();
-        let query = { host: req.user._id };
+        let where = { hostId: req.user.id };
         if (status === 'upcoming') {
-            query.date = { $gte: now };
+            where.date = { [sequelize_1.Op.gte]: now };
         }
         else if (status === 'past') {
-            query.date = { $lt: now };
+            where.date = { [sequelize_1.Op.lt]: now };
         }
-        const movieNights = await MovieNight_1.MovieNight.find(query)
-            .populate('movies', 'title posterUrl rating')
-            .sort({ date: 1, time: 1 });
+        const movieNights = await MovieNight_1.MovieNight.findAll({
+            where,
+            include: [{
+                    model: Movie_1.Movie,
+                    as: 'movies',
+                    attributes: ['id', 'title', 'posterUrl', 'rating'],
+                    through: { attributes: [] }
+                }],
+            order: [['date', 'ASC'], ['time', 'ASC']]
+        });
         res.json({ movieNights });
     }
     catch (error) {
@@ -90,10 +90,13 @@ router.put('/:id', auth_1.protect, [
         }
         const { id } = req.params;
         const updates = req.body;
-        const movieNight = await MovieNight_1.MovieNight.findOneAndUpdate({ _id: id, host: req.user._id }, updates, { new: true, runValidators: true });
+        const movieNight = await MovieNight_1.MovieNight.findOne({
+            where: { id, hostId: req.user.id }
+        });
         if (!movieNight) {
             return res.status(404).json({ message: 'Movie night not found' });
         }
+        await movieNight.update(updates);
         res.json({
             message: 'Movie night updated successfully',
             movieNight
@@ -108,17 +111,13 @@ router.put('/:id', auth_1.protect, [
 router.delete('/:id', auth_1.protect, async (req, res) => {
     try {
         const { id } = req.params;
-        const movieNight = await MovieNight_1.MovieNight.findOneAndDelete({
-            _id: id,
-            host: req.user._id
+        const movieNight = await MovieNight_1.MovieNight.findOne({
+            where: { id, hostId: req.user.id }
         });
         if (!movieNight) {
             return res.status(404).json({ message: 'Movie night not found' });
         }
-        // Remove from user's movie nights
-        await User_1.User.findByIdAndUpdate(req.user._id, {
-            $pull: { movieNights: id }
-        });
+        await movieNight.destroy();
         res.json({
             message: 'Movie night deleted successfully'
         });
@@ -139,18 +138,25 @@ router.post('/:id/movies', auth_1.protect, [
         }
         const { id } = req.params;
         const { movieIds } = req.body;
-        // Verify movies exist
-        const movies = await Movie_1.Movie.find({ _id: { $in: movieIds } });
-        if (movies.length !== movieIds.length) {
-            return res.status(400).json({ message: 'Some movies not found' });
-        }
-        const movieNight = await MovieNight_1.MovieNight.findOneAndUpdate({ _id: id, host: req.user._id }, { $addToSet: { movies: { $each: movieIds } } }, { new: true }).populate('movies', 'title posterUrl rating');
+        const movieNight = await MovieNight_1.MovieNight.findOne({
+            where: { id, hostId: req.user.id }
+        });
         if (!movieNight) {
             return res.status(404).json({ message: 'Movie night not found' });
         }
+        // Add movies (Sequelize helper for many-to-many)
+        await movieNight.addMovies(movieIds);
+        const updatedMovieNight = await MovieNight_1.MovieNight.findByPk(id, {
+            include: [{
+                    model: Movie_1.Movie,
+                    as: 'movies',
+                    attributes: ['id', 'title', 'posterUrl', 'rating'],
+                    through: { attributes: [] }
+                }]
+        });
         res.json({
             message: 'Movies added to movie night successfully',
-            movieNight
+            movieNight: updatedMovieNight
         });
     }
     catch (error) {
