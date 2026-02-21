@@ -27,7 +27,7 @@
 
 ### Prerequisites
 - Node.js 16+ 
-- MongoDB (local or Atlas)
+- MySQL (local or cloud)
 - TMDB API key ([Get it here](https://www.themoviedb.org/settings/api))
 
 ### Installation
@@ -56,8 +56,12 @@ Create `.env` file in the root directory:
 # TMDB API Key
 TMDB_API_KEY=your_tmdb_api_key_here
 
-# MongoDB
-MONGODB_URI=mongodb://localhost:27017/cinepick
+# MySQL
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=cinepick
 
 # JWT Secret
 JWT_SECRET=your_jwt_secret_here
@@ -107,7 +111,7 @@ npm run dev
 ### Backend
 - **Node.js** with Express
 - **TypeScript** - Type-safe development
-- **MongoDB** with Mongoose - Database
+- **MySQL** with Sequelize - Relational Database ORM
 - **JWT** - Authentication tokens
 - **Passport.js** - OAuth authentication
 - **TMDB API** - Movie data source
@@ -133,7 +137,7 @@ cinepick/
 │   ├── src/
 │   │   ├── config/        # Database and auth configuration
 │   │   ├── middleware/    # Express middleware
-│   │   ├── models/        # MongoDB models
+│   │   ├── models/        # MySQL models (Sequelize)
 │   │   ├── routes/        # API routes
 │   │   └── types/         # TypeScript types
 ├── public/                # Static assets
@@ -182,7 +186,11 @@ cinepick/
 ```env
 # Required
 TMDB_API_KEY=your_tmdb_api_key
-MONGODB_URI=mongodb://localhost:27017/cinepick
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=cinepick
 JWT_SECRET=your_jwt_secret
 
 # Optional (for Google OAuth)
@@ -226,7 +234,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **TMDB** - For providing the movie database API
 - **Material-UI** - For the beautiful React components
-- **MongoDB Atlas** - For cloud database hosting
+- **MySQL / PlanetScale** - For relation database processing and hosting
 
 ## 📬 Connect With Me
 
