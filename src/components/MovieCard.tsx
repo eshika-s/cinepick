@@ -1,7 +1,14 @@
-import { Card, CardContent, CardMedia, Typography, Chip, Rating, Box, IconButton } from '@mui/material'
+import { Card, CardContent, CardMedia, Typography, Chip, Rating, Box, IconButton, Avatar, Tooltip } from '@mui/material'
 import { Favorite, Bookmark, BookmarkBorder } from '@mui/icons-material'
 import { Movie } from '../types/movie'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+
+export interface WatchProvider {
+  logo_path: string;
+  provider_id: number;
+  provider_name: string;
+}
 
 interface MovieCardProps {
   movie: Movie
@@ -21,6 +28,33 @@ export default function MovieCard({
   isLiked = false
 }: MovieCardProps) {
   const [imageError, setImageError] = useState(false)
+  const [providers, setProviders] = useState<WatchProvider[]>([])
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchProviders = async () => {
+      try {
+        const url = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const res = await axios.get(`${url}/movies/${movie.id}/providers`);
+        if (!isMounted) return;
+        
+        const results = res.data.providers;
+        if (results) {
+          // Check India, then USA, or fallback to first available
+          const countryData = results.IN || results.US || Object.values(results)[0] as any;
+          if (countryData) {
+            if (countryData.flatrate) setProviders(countryData.flatrate.slice(0, 3));
+            else if (countryData.rent) setProviders(countryData.rent.slice(0, 3));
+            else if (countryData.buy) setProviders(countryData.buy.slice(0, 3));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch providers', err);
+      }
+    };
+    fetchProviders();
+    return () => { isMounted = false; };
+  }, [movie.id]);
 
   const handleWatchlistClick = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -147,11 +181,28 @@ export default function MovieCard({
           {movie.overview || 'No description available'}
         </Typography>
 
+        {providers.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', mt: 'auto' }}>
+            <Typography variant="caption" sx={{ color: '#B8B8CD', fontSize: '0.7rem' }}>
+              Available on:
+            </Typography>
+            {providers.map(p => (
+              <Tooltip key={p.provider_id} title={p.provider_name} arrow placement="top">
+                <Avatar 
+                  src={`https://image.tmdb.org/t/p/w45${p.logo_path}`} 
+                  alt={p.provider_name}
+                  sx={{ width: 22, height: 22, border: '1px solid rgba(255,255,255,0.1)' }}
+                />
+              </Tooltip>
+            ))}
+          </Box>
+        )}
+
         <Box sx={{
           display: 'flex',
           flexWrap: 'wrap',
           gap: 0.5,
-          mt: 'auto',
+          mt: providers.length > 0 ? 0 : 'auto',
           mb: 1
         }}>
           {movie.genres?.slice(0, 2).map((genre, index) => (

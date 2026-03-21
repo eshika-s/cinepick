@@ -12,10 +12,13 @@ const sequelize = new sequelize_1.Sequelize(process.env.DB_NAME || 'cinepick', p
     port: parseInt(process.env.DB_PORT || '3306'),
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    dialectOptions: {
+        connectTimeout: 60000 // Increase connection timeout to 60 seconds
+    },
     pool: {
         max: 5,
         min: 0,
-        acquire: 30000,
+        acquire: 60000,
         idle: 10000
     }
 });
@@ -25,8 +28,8 @@ const connectToDb = async () => {
         await sequelize.authenticate();
         console.log('✅ Connected to MySQL successfully!');
         // Sync models
-        // In production, you might want to use migrations instead of sync
-        if (process.env.NODE_ENV === 'development') {
+        // In production, we're adding SYNC_DB check to easily provision remote database tables
+        if (process.env.NODE_ENV === 'development' || process.env.SYNC_DB === 'true') {
             await sequelize.sync({ alter: true });
             console.log('📊 Database models synced');
         }

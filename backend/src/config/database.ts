@@ -1,45 +1,24 @@
-import { Sequelize } from 'sequelize';
+import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
+import path from 'path';
 
-dotenv.config();
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
 
-const sequelize = new Sequelize(
-  process.env.DB_NAME || 'cinepick',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '',
-  {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '3306'),
-    dialect: 'mysql',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
-    dialectOptions: {
-      connectTimeout: 60000 // Increase connection timeout to 60 seconds
-    },
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 60000,
-      idle: 10000
-    }
-  }
-);
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
 
-export const connectToDb = async () => {
+const prisma = new PrismaClient({
+  log: nodeEnv === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
+});
+
+export const connectDB = async () => {
   try {
-    console.log('🔌 Connecting to MySQL...');
-    await sequelize.authenticate();
-    console.log('✅ Connected to MySQL successfully!');
-
-    // Sync models
-    // In production, we're adding SYNC_DB check to easily provision remote database tables
-    if (process.env.NODE_ENV === 'development' || process.env.SYNC_DB === 'true') {
-      await sequelize.sync({ alter: true });
-      console.log('📊 Database models synced');
-    }
+    await prisma.$connect();
+    console.log('✅ Database connection established successfully via Prisma');
   } catch (error) {
     console.error('❌ Error connecting to MySQL:', error);
     process.exit(1);
   }
 };
 
-export default sequelize;
+export default prisma;

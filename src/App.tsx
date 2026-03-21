@@ -50,12 +50,12 @@ function AppContent() {
 
   // Get mood keywords for search
   const moodData = [
-    { id: 'happy', name: 'Happy & Uplifting', searchTerms: ['comedy', 'feel good comedy', 'family comedy'] },
-    { id: 'thriller', name: 'Edge of Your Seat', searchTerms: ['thriller', 'suspense thriller', 'psychological thriller'] },
-    { id: 'cozy', name: 'Cozy & Relaxing', searchTerms: ['drama', 'romance', 'heartwarming drama'] },
-    { id: 'mindbending', name: 'Mind-Bending', searchTerms: ['sci-fi', 'science fiction', 'psychological thriller'] },
-    { id: 'romantic', name: 'Romantic & Heartwarming', searchTerms: ['romance', 'love story', 'romantic comedy'] },
-    { id: 'epic', name: 'Epic Adventures', searchTerms: ['adventure', 'action adventure', 'fantasy adventure'] }
+    { id: 'happy', name: 'Happy & Uplifting', targetGenre: 'Comedy' },
+    { id: 'thriller', name: 'Edge of Your Seat', targetGenre: 'Thriller' },
+    { id: 'cozy', name: 'Cozy & Relaxing', targetGenre: 'Drama' },
+    { id: 'mindbending', name: 'Mind-Bending', targetGenre: 'Science Fiction' },
+    { id: 'romantic', name: 'Romantic & Heartwarming', targetGenre: 'Romance' },
+    { id: 'epic', name: 'Epic Adventures', targetGenre: 'Adventure' }
   ]
 
   // Handle OAuth callback
@@ -163,8 +163,8 @@ function AppContent() {
     if (mood) {
       const selectedMoodData = moodData.find(m => m.id === mood)
       if (selectedMoodData) {
-        const searchQuery = selectedMoodData.searchTerms[0]
-        setSearchQuery(searchQuery)
+        setSelectedGenre(selectedMoodData.targetGenre)
+        setSearchQuery('')
         setTabValue(0)
       }
     } else {
@@ -329,6 +329,7 @@ function AppContent() {
                       size="small"
                       onClick={() => {
                         setSelectedMood('')
+                        setSelectedGenre('all')
                         setSearchQuery('')
                         setTabValue(1)
                       }}

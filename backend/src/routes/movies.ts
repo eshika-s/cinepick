@@ -1,12 +1,10 @@
 import express from 'express'
 import axios from 'axios'
-import { Op } from 'sequelize'
 import { protect, AuthRequest } from '../middleware/auth'
-import { Movie } from '../models/Movie'
+import prisma from '../config/database'
 
 const router = express.Router()
 
-// TMDB API configuration
 const TMDB_API_KEY = process.env.TMDB_API_KEY || '2b61a1d5540e6d75f7d38444ab857503'
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3'
 
@@ -26,9 +24,7 @@ router.get('/', async (req, res) => {
     }
 
     if (category) {
-      endpoint = category === 'trending'
-        ? '/trending/movie/week'
-        : `/movie/${category}`
+      endpoint = category === 'trending' ? '/trending/movie/week' : `/movie/${category}`
     } else if (searchQuery) {
       endpoint = '/search/movie'
       params.query = searchQuery
@@ -41,7 +37,6 @@ router.get('/', async (req, res) => {
 
     console.log('🎬 Fetching from TMDB:', `${TMDB_BASE_URL}${endpoint}`)
 
-    // Retry logic for connection issues
     let retries = 3
     let lastError: any = null
 
@@ -50,11 +45,7 @@ router.get('/', async (req, res) => {
         const response = await axios.get(`${TMDB_BASE_URL}${endpoint}`, {
           params,
           timeout: 15000,
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'YMovies/1.0'
-          },
-          // Add connection pooling settings
+          headers: { 'Accept': 'application/json', 'User-Agent': 'YMovies/1.0' },
           httpAgent: new (require('http').Agent)({ keepAlive: true }),
           httpsAgent: new (require('https').Agent)({ keepAlive: true })
         })
@@ -69,99 +60,59 @@ router.get('/', async (req, res) => {
       } catch (error: any) {
         lastError = error
         retries--
-
         if (error.code === 'ECONNRESET' && retries > 0) {
           console.log(`⚠️ Connection reset, retrying... (${retries} retries left)`)
-          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000))
           continue
         }
-
         throw error
       }
     }
 
     throw lastError
-
   } catch (error: any) {
     console.error('❌ Get movies error:', error.message)
-
-    // Handle specific error cases
-    if (error.code === 'ECONNABORTED') {
-      return res.status(504).json({
-        message: 'Request timeout - TMDB API is slow',
-        error: 'timeout'
-      })
-    }
-
-    if (error.code === 'ECONNRESET') {
-      return res.status(503).json({
-        message: 'Connection to TMDB API failed. Please try again.',
-        error: 'connection_reset'
-      })
-    }
-
-    if (error.response?.status === 429) {
-      return res.status(429).json({
-        message: 'Too many requests to TMDB API',
-        error: 'rate_limit'
-      })
-    }
-
-    if (error.response?.status === 401) {
-      return res.status(500).json({
-        message: 'Invalid TMDB API key',
-        error: 'invalid_api_key'
-      })
-    }
-
-    res.status(500).json({
-      message: 'Server error fetching movies',
-      error: error.message,
-      details: error.response?.data || error.code
-    })
+    if (error.code === 'ECONNABORTED') return res.status(504).json({ message: 'Request timeout', error: 'timeout' })
+    if (error.code === 'ECONNRESET') return res.status(503).json({ message: 'Connection failed', error: 'connection_reset' })
+    if (error.response?.status === 429) return res.status(429).json({ message: 'Rate limit exceeded', error: 'rate_limit' })
+    if (error.response?.status === 401) return res.status(500).json({ message: 'Invalid TMDB API key', error: 'invalid_api_key' })
+    res.status(500).json({ message: 'Server error fetching movies', error: error.message })
   }
 })
 
-// Search movies in local database
+// Search movies in local database (Prisma)
 router.get('/search', async (req, res) => {
   try {
-    const { q, genre, mood, page = 1, limit = 20 } = req.query
+    const { q, genre, mood, page = '1', limit = '20' } = req.query as any
+    const skip = (parseInt(page) - 1) * parseInt(limit)
 
     const where: any = {}
-
     if (q) {
-      where[Op.or] = [
-        { title: { [Op.like]: `%${q}%` } },
-        { overview: { [Op.like]: `%${q}%` } }
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { overview: { contains: q, mode: 'insensitive' } }
       ]
     }
+    if (genre) where.genres = { has: genre }
+    if (mood) where.moodTags = { has: mood }
 
-    if (genre) {
-      // For JSON array in MySQL, we might need JSON_CONTAINS or just Op.like if it's stringified
-      // but Sequelize handles JSON fields. However Op.contains is for postgres.
-      // For MySQL JSON, we can use Op.like if we know the structure or Op.regexp
-      where.genres = { [Op.like]: `%${genre}%` }
-    }
-
-    if (mood) {
-      where.moodTags = { [Op.like]: `%${mood}%` }
-    }
-
-    const offset = (Number(page) - 1) * Number(limit)
-    const { count, rows: movies } = await Movie.findAndCountAll({
-      where,
-      order: [['rating', 'DESC'], ['popularity', 'DESC']],
-      limit: Number(limit),
-      offset: offset
-    })
+    const [movies, count] = await Promise.all([
+      prisma.movie.findMany({
+        where,
+        orderBy: [{ rating: 'desc' }, { popularity: 'desc' }],
+        skip,
+        take: parseInt(limit)
+      }),
+      prisma.movie.count({ where })
+    ])
 
     res.json({
       movies,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: parseInt(page),
+        limit: parseInt(limit),
         total: count,
-        pages: Math.ceil(count / Number(limit))
+        pages: Math.ceil(count / parseInt(limit))
       }
     })
   } catch (error) {
@@ -171,14 +122,26 @@ router.get('/search', async (req, res) => {
 })
 
 // Get movie by ID
+router.get('/:id/providers', async (req, res) => {
+  try {
+    const { id } = req.params
+    const response = await axios.get(`${TMDB_BASE_URL}/movie/${id}/watch/providers`, {
+      params: { api_key: TMDB_API_KEY },
+      timeout: 10000,
+      httpAgent: new (require('http').Agent)({ keepAlive: true }),
+      httpsAgent: new (require('https').Agent)({ keepAlive: true })
+    })
+    res.json({ providers: response.data.results })
+  } catch (error: any) {
+    console.error(`Error fetching providers for movie ${req.params.id}:`, error.message)
+    res.status(500).json({ message: 'Server error fetching providers' })
+  }
+})
+
 router.get('/:id', async (req, res) => {
   try {
-    const movie = await Movie.findByPk(req.params.id)
-
-    if (!movie) {
-      return res.status(404).json({ message: 'Movie not found' })
-    }
-
+    const movie = await prisma.movie.findUnique({ where: { id: parseInt(req.params.id) } })
+    if (!movie) return res.status(404).json({ message: 'Movie not found' })
     res.json({ movie })
   } catch (error) {
     console.error('Get movie error:', error)
@@ -186,18 +149,16 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// Get popular movies
+// Browse popular
 router.get('/browse/popular', async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query
-    const offset = (Number(page) - 1) * Number(limit)
-
-    const movies = await Movie.findAll({
-      order: [['popularity', 'DESC'], ['rating', 'DESC']],
-      limit: Number(limit),
-      offset: offset
+    const { page = '1', limit = '20' } = req.query as any
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const movies = await prisma.movie.findMany({
+      orderBy: [{ popularity: 'desc' }, { rating: 'desc' }],
+      skip,
+      take: parseInt(limit)
     })
-
     res.json({ movies })
   } catch (error) {
     console.error('Get popular movies error:', error)
@@ -205,18 +166,16 @@ router.get('/browse/popular', async (req, res) => {
   }
 })
 
-// Get top rated movies
+// Browse top rated
 router.get('/browse/top-rated', async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query
-    const offset = (Number(page) - 1) * Number(limit)
-
-    const movies = await Movie.findAll({
-      order: [['rating', 'DESC'], ['voteCount', 'DESC']],
-      limit: Number(limit),
-      offset: offset
+    const { page = '1', limit = '20' } = req.query as any
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const movies = await prisma.movie.findMany({
+      orderBy: [{ rating: 'desc' }, { voteCount: 'desc' }],
+      skip,
+      take: parseInt(limit)
     })
-
     res.json({ movies })
   } catch (error) {
     console.error('Get top rated movies error:', error)
@@ -224,22 +183,18 @@ router.get('/browse/top-rated', async (req, res) => {
   }
 })
 
-// Get movies by genre
+// Browse by genre
 router.get('/browse/genre/:genre', async (req, res) => {
   try {
     const { genre } = req.params
-    const { page = 1, limit = 20 } = req.query
-    const offset = (Number(page) - 1) * Number(limit)
-
-    const movies = await Movie.findAll({
-      where: {
-        genres: { [Op.like]: `%${genre}%` }
-      },
-      order: [['rating', 'DESC'], ['popularity', 'DESC']],
-      limit: Number(limit),
-      offset: offset
+    const { page = '1', limit = '20' } = req.query as any
+    const skip = (parseInt(page) - 1) * parseInt(limit)
+    const movies = await prisma.movie.findMany({
+      where: { genres: { has: genre } },
+      orderBy: [{ rating: 'desc' }, { popularity: 'desc' }],
+      skip,
+      take: parseInt(limit)
     })
-
     res.json({ movies })
   } catch (error) {
     console.error('Get movies by genre error:', error)

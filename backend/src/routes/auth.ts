@@ -1,9 +1,8 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
 import bcrypt from 'bcryptjs'
-import { Op } from 'sequelize'
-import { User } from '../models/User'
 import { generateToken, protect, AuthRequest } from '../middleware/auth'
+import prisma from '../config/database'
 
 const router = express.Router()
 
@@ -24,33 +23,28 @@ router.post('/register', [
     const { email, username, password, firstName, lastName } = req.body
 
     // Check if user already exists
-    const existingUser = await User.findOne({
-      where: {
-        [Op.or]: [{ email }, { username }]
-      }
+    const existingUser = await prisma.user.findFirst({
+      where: { OR: [{ email }, { username }] }
     })
 
     if (existingUser) {
-      return res.status(400).json({
-        message: 'User with this email or username already exists'
-      })
+      return res.status(400).json({ message: 'User with this email or username already exists' })
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(12)
     const hashedPassword = await bcrypt.hash(password, salt)
 
-    // Create user
-    const user = await User.create({
-      email,
-      username,
-      password: hashedPassword,
-      firstName,
-      lastName,
-      isEmailVerified: false
+    const user = await prisma.user.create({
+      data: {
+        email,
+        username,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        isEmailVerified: false
+      }
     })
 
-    // Generate token
     const token = generateToken(user.id.toString())
 
     res.status(201).json({
@@ -85,27 +79,21 @@ router.post('/login', [
 
     const { email, password } = req.body
 
-    // Find user
-    const user = await User.findOne({ where: { email } })
+    const user = await prisma.user.findUnique({ where: { email } })
     if (!user || !user.password) {
-      return res.status(401).json({
-        message: 'Invalid email or password'
-      })
+      return res.status(401).json({ message: 'Invalid email or password' })
     }
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
-      return res.status(401).json({
-        message: 'Invalid email or password'
-      })
+      return res.status(401).json({ message: 'Invalid email or password' })
     }
 
-    // Update last login
-    user.lastLogin = new Date()
-    await user.save()
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() }
+    })
 
-    // Generate token
     const token = generateToken(user.id.toString())
 
     res.json({
@@ -130,8 +118,9 @@ router.post('/login', [
 // Get current user
 router.get('/me', protect, async (req: AuthRequest, res: any) => {
   try {
-    const user = await User.findByPk(req.user.id, {
-      include: ['hostedMovieNights']
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: { hostedMovieNights: true }
     })
 
     if (!user) {
@@ -148,7 +137,7 @@ router.get('/me', protect, async (req: AuthRequest, res: any) => {
         avatar: user.avatar,
         isEmailVerified: user.isEmailVerified,
         preferences: user.preferences,
-        movieNights: (user as any).hostedMovieNights,
+        movieNights: user.hostedMovieNights,
         createdAt: user.createdAt
       }
     })
@@ -171,63 +160,51 @@ router.put('/preferences', protect, [
     }
 
     const { favoriteGenres, moodPreferences, ratingThreshold } = req.body
-
-    const user = await User.findByPk(req.user.id)
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } })
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' })
     }
 
-    const preferences = { ...(user.preferences || {}) }
+    const preferences: any = { ...(user.preferences as any || {}) }
 
-    if (favoriteGenres) {
-      preferences.favoriteGenres = favoriteGenres
-    }
-
+    if (favoriteGenres) preferences.favoriteGenres = favoriteGenres
     if (moodPreferences) {
       preferences.moodPreferences = moodPreferences.map((pref: any) => ({
         ...pref,
         lastSelected: pref.lastSelected || new Date()
       }))
     }
+    if (ratingThreshold !== undefined) preferences.ratingThreshold = ratingThreshold
 
-    if (ratingThreshold !== undefined) {
-      preferences.ratingThreshold = ratingThreshold
-    }
-
-    user.preferences = preferences
-    await user.save()
-
-    res.json({
-      message: 'Preferences updated successfully',
-      preferences: user.preferences
+    const updated = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { preferences }
     })
+
+    res.json({ message: 'Preferences updated successfully', preferences: updated.preferences })
   } catch (error) {
     console.error('Update preferences error:', error)
     res.status(500).json({ message: 'Server error' })
   }
 })
 
-// Get user statistics (admin endpoint)
+// Get user statistics
 router.get('/stats', protect, async (req: AuthRequest, res: any) => {
   try {
-    const userCount = await User.count()
-    const verifiedUsers = await User.count({ where: { isEmailVerified: true } })
-    const googleUsers = await User.count({ where: { googleId: { [Op.ne]: null } } })
-    const appleUsers = await User.count({ where: { appleId: { [Op.ne]: null } } })
-    const recentUsers = await User.findAll({
-      order: [['createdAt', 'DESC']],
-      limit: 5,
-      attributes: ['email', 'username', 'createdAt']
-    })
+    const [totalUsers, verifiedUsers, googleUsers, appleUsers, recentUsers] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { isEmailVerified: true } }),
+      prisma.user.count({ where: { googleId: { not: null } } }),
+      prisma.user.count({ where: { appleId: { not: null } } }),
+      prisma.user.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: { email: true, username: true, createdAt: true }
+      })
+    ])
 
-    res.json({
-      totalUsers: userCount,
-      verifiedUsers,
-      googleUsers,
-      appleUsers,
-      recentUsers
-    })
+    res.json({ totalUsers, verifiedUsers, googleUsers, appleUsers, recentUsers })
   } catch (error) {
     console.error('Get stats error:', error)
     res.status(500).json({ message: 'Server error' })

@@ -9,7 +9,7 @@ import dotenv from 'dotenv'
 // Load environment variables first
 dotenv.config()
 
-import { connectToDb } from './config/database'
+import { connectDB } from './config/database'
 import { passport } from './config/passport'
 import { generateToken } from './middleware/auth'
 import authRoutes from './routes/auth'
@@ -19,32 +19,39 @@ import movieNightRoutes from './routes/movieNights'
 
 const app = express()
 
+// Enable trust proxy for rate limiting behind Render/Vercel load balancers
+app.set('trust proxy', 1)
+
 // Security middleware
 app.use(helmet())
 app.use(compression())
 
 // CORS configuration
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'http://localhost:3004',
-  'http://localhost:3005',
-  'http://localhost:5173',
-  'http://localhost:5174'
-]
-
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true)
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    const allowedOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3003',
+      'http://localhost:3004',
+      'http://localhost:3005',
+      'http://localhost:5173',
+      'http://localhost:5174'
+    ].filter(Boolean) as string[]
+
+    // Check exact matches, vercel preview domains, or any local development port
+    if (allowedOrigins.indexOf(origin) !== -1 || 
+        origin.endsWith('.vercel.app') || 
+        origin.endsWith('.onrender.com') ||
+        (origin && origin.startsWith('http://localhost:'))) {
       callback(null, true)
     } else {
-      callback(new Error('Not allowed by CORS'))
+      callback(new Error(`Not allowed by CORS: ${origin}`))
     }
   },
   credentials: true
@@ -121,7 +128,7 @@ const PORT = process.env.PORT || 5000
 
 const startServer = async () => {
   try {
-    await connectToDb()
+    await connectDB()
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`)
       console.log(`📚 Environment: ${process.env.NODE_ENV}`)

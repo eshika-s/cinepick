@@ -3,7 +3,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { Strategy as AppleStrategy } from 'passport-apple'
 import { Strategy as LocalStrategy } from 'passport-local'
 import bcrypt from 'bcryptjs'
-import { User } from '../models/User'
+import prisma from './database'
 
 passport.serializeUser((user: any, done: any) => {
   done(null, user.id)
@@ -11,14 +11,14 @@ passport.serializeUser((user: any, done: any) => {
 
 passport.deserializeUser(async (id: any, done: any) => {
   try {
-    const user = await User.findByPk(id)
+    const user = await prisma.user.findUnique({ where: { id: typeof id === 'string' ? parseInt(id) : id } })
     done(null, user)
   } catch (error) {
     done(error, null)
   }
 })
 
-// Google Strategy - Only initialize if credentials are provided
+// Google Strategy
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -26,30 +26,30 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
   }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
     try {
-      let user = await User.findOne({ where: { googleId: profile.id } })
+      let user = await prisma.user.findFirst({ where: { googleId: profile.id } })
+
+      if (user) return done(null, user)
+
+      user = await prisma.user.findFirst({ where: { email: profile.emails![0].value } })
 
       if (user) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: { googleId: profile.id, avatar: profile.photos![0].value, isEmailVerified: true }
+        })
         return done(null, user)
       }
 
-      user = await User.findOne({ where: { email: profile.emails![0].value } })
-
-      if (user) {
-        user.googleId = profile.id
-        user.avatar = profile.photos![0].value
-        user.isEmailVerified = true
-        await user.save()
-        return done(null, user)
-      }
-
-      const newUser = await User.create({
-        googleId: profile.id,
-        email: profile.emails![0].value,
-        username: profile.emails![0].value.split('@')[0],
-        firstName: profile.name?.givenName,
-        lastName: profile.name?.familyName,
-        avatar: profile.photos![0].value,
-        isEmailVerified: true
+      const newUser = await prisma.user.create({
+        data: {
+          googleId: profile.id,
+          email: profile.emails![0].value,
+          username: profile.emails![0].value.split('@')[0],
+          firstName: profile.name?.givenName,
+          lastName: profile.name?.familyName,
+          avatar: profile.photos![0].value,
+          isEmailVerified: true
+        }
       })
 
       done(null, newUser)
@@ -61,7 +61,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   console.log('⚠️  Google OAuth not configured - skipping Google strategy')
 }
 
-// Apple Strategy - Only initialize if credentials are provided
+// Apple Strategy
 if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
   passport.use(new AppleStrategy({
     clientID: process.env.APPLE_CLIENT_ID,
@@ -71,30 +71,29 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
     callbackURL: process.env.APPLE_CALLBACK_URL || 'http://localhost:5000/api/auth/apple/callback',
   }, async (accessToken: any, refreshToken: any, profile: any, done: any) => {
     try {
-      let user = await User.findOne({ where: { appleId: profile.id } })
-
-      if (user) {
-        return done(null, user)
-      }
+      let user = await prisma.user.findFirst({ where: { appleId: profile.id } })
+      if (user) return done(null, user)
 
       if (profile.email) {
-        user = await User.findOne({ where: { email: profile.email } })
-
+        user = await prisma.user.findFirst({ where: { email: profile.email } })
         if (user) {
-          user.appleId = profile.id
-          user.isEmailVerified = true
-          await user.save()
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { appleId: profile.id, isEmailVerified: true }
+          })
           return done(null, user)
         }
       }
 
-      const newUser = await User.create({
-        appleId: profile.id,
-        email: profile.email || `${profile.id}@privaterelay.appleid.com`,
-        username: `apple_user_${profile.id.slice(-8)}`,
-        firstName: profile.name?.firstName,
-        lastName: profile.name?.lastName,
-        isEmailVerified: true
+      const newUser = await prisma.user.create({
+        data: {
+          appleId: profile.id,
+          email: profile.email || `${profile.id}@privaterelay.appleid.com`,
+          username: `apple_user_${profile.id.slice(-8)}`,
+          firstName: profile.name?.firstName,
+          lastName: profile.name?.lastName,
+          isEmailVerified: true
+        }
       })
 
       done(null, newUser)
@@ -107,28 +106,17 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
 }
 
 // Local Strategy
-passport.use(new LocalStrategy({
-  usernameField: 'email'
-}, async (email: any, password: any, done: any) => {
+passport.use(new LocalStrategy({ usernameField: 'email' }, async (email: any, password: any, done: any) => {
   try {
-    const user = await User.findOne({ where: { email } })
+    const user = await prisma.user.findUnique({ where: { email } })
 
-    if (!user) {
-      return done(null, false, { message: 'Invalid email or password' })
-    }
-
-    if (!user.password) {
-      return done(null, false, { message: 'Please use social login or set a password' })
-    }
+    if (!user) return done(null, false, { message: 'Invalid email or password' })
+    if (!user.password) return done(null, false, { message: 'Please use social login or set a password' })
 
     const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) return done(null, false, { message: 'Invalid email or password' })
 
-    if (!isMatch) {
-      return done(null, false, { message: 'Invalid email or password' })
-    }
-
-    user.lastLogin = new Date()
-    await user.save()
+    await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
 
     done(null, user)
   } catch (error) {

@@ -43,17 +43,17 @@ class RequestQueue {
 
   private async processQueue() {
     if (this.isProcessing || this.queue.length === 0) return
-    
+
     this.isProcessing = true
-    
+
     while (this.queue.length > 0) {
       const now = Date.now()
       const timeSinceLastRequest = now - this.lastRequestTime
-      
+
       if (timeSinceLastRequest < this.minDelay) {
         await new Promise(resolve => setTimeout(resolve, this.minDelay - timeSinceLastRequest))
       }
-      
+
       const request = this.queue.shift()
       if (request) {
         try {
@@ -64,7 +64,7 @@ class RequestQueue {
         }
       }
     }
-    
+
     this.isProcessing = false
   }
 }
@@ -114,7 +114,7 @@ export default function useMovies({ searchQuery, genre, category }: UseMoviesPro
     rating: movie.vote_average || 0,
     year: movie.release_date?.split('-')[0] || 'N/A',
     overview: movie.overview || 'No description available',
-    posterUrl: movie.poster_path 
+    posterUrl: movie.poster_path
       ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
       : '/placeholder-movie.svg',
     backdropUrl: movie.backdrop_path
@@ -132,7 +132,7 @@ export default function useMovies({ searchQuery, genre, category }: UseMoviesPro
 
       // Create cache key
       const cacheKey = `${category || 'all'}_${searchQuery || 'none'}_${genre || 'all'}_page${pageNumber}`
-      
+
       // Check cache first
       const cachedData = getCachedData(cacheKey)
       if (cachedData && pageNumber === 1) {
@@ -147,22 +147,22 @@ export default function useMovies({ searchQuery, genre, category }: UseMoviesPro
         page: pageNumber,
         category,
         searchQuery,
-        genre
+        genre: genre && genre !== 'all' ? reverseGenreMap[genre] : undefined
       }
 
       // Use request queue to avoid rate limiting
-      const response = await requestQueue.add(() => 
+      const response = await requestQueue.add(() =>
         axios.get(`${API_BASE_URL}/movies`, { params })
       )
-      
+
       const totalPages = response.data.totalPages || 1
       const newMovies = response.data.movies.map(formatMovie)
-      
+
       // Cache the results for first page
       if (pageNumber === 1) {
         setCachedData(cacheKey, { movies: newMovies, totalPages })
       }
-      
+
       setTotalPages(totalPages)
       setMovies(prev => isNewSearch ? newMovies : [...prev, ...newMovies])
       setPage(pageNumber)
@@ -208,11 +208,11 @@ export default function useMovies({ searchQuery, genre, category }: UseMoviesPro
     }
   }, [page, totalPages, loading, fetchMovies])
 
-  return { 
-    movies, 
-    loading, 
-    error, 
-    loadMore, 
-    hasMore: page < totalPages 
+  return {
+    movies,
+    loading,
+    error,
+    loadMore,
+    hasMore: page < totalPages
   }
 }

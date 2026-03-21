@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int          @id @default(autoincrement())
+  email           String       @unique
+  password        String?
+  username        String       @unique
+  firstName       String?
+  lastName        String?
+  avatar          String?
+  googleId        String?
+  appleId         String?
+  isEmailVerified Boolean      @default(false)
+  lastLogin       DateTime     @default(now())
+  preferences     Json?        @default("{\"favoriteGenres\":[],\"moodPreferences\":[],\"dislikedMovies\":[],\"likedMovies\":[],\"watchlist\":[],\"ratingThreshold\":6.0}")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  hostedMovieNights MovieNight[] @relation("Host")
+  
+  @@map("users")
+  @@index([email])
+  @@index([username])
+  @@index([googleId])
+  @@index([appleId])
+}
+
+model Movie {
+  id          Int          @id @default(autoincrement())
+  tmdbId      Int          @unique
+  title       String
+  overview    String
+  posterUrl   String?
+  backdropUrl String?
+  releaseDate DateTime?
+  rating      Float?
+  voteCount   Int          @default(0)
+  genres      String[]     @default([])
+  moodTags    String[]     @default([])
+  runtime     Int?
+  language    String       @default("en")
+  adult       Boolean      @default(false)
+  popularity  Float        @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  movieNights MovieNight[] @relation("MovieNightMovies")
+
+  @@map("movies")
+  @@index([title])
+  @@index([rating])
+  @@index([popularity])
+}
+
+model MovieNight {
+  id        Int      @id @default(autoincrement())
+  title     String
+  date      DateTime
+  time      String
+  hostId    Int
+  host      User     @relation("Host", fields: [hostId], references: [id])
+  guests    String[] @default([])
+  theme     String?
+  notes     String?
+  status    String   @default("planned")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movies    Movie[]  @relation("MovieNightMovies")
+
+  @@map("movie_nights")
+}

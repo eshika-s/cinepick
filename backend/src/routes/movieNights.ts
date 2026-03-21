@@ -1,10 +1,7 @@
 import express from 'express'
 import { body, validationResult } from 'express-validator'
-import { Op } from 'sequelize'
 import { protect, AuthRequest } from '../middleware/auth'
-import { MovieNight } from '../models/MovieNight'
-import { User } from '../models/User'
-import { Movie } from '../models/Movie'
+import prisma from '../config/database'
 
 const router = express.Router()
 
@@ -19,27 +16,24 @@ router.post('/', protect, [
 ], async (req: any, res: any) => {
   try {
     const errors = validationResult(req)
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() })
 
     const { title, date, time, guests, theme, notes } = req.body
 
-    const movieNight = await MovieNight.create({
-      title,
-      date,
-      time,
-      hostId: req.user.id,
-      guests: guests || [],
-      theme,
-      notes,
-      status: 'planned'
+    const movieNight = await prisma.movieNight.create({
+      data: {
+        title,
+        date: new Date(date),
+        time,
+        hostId: req.user.id,
+        guests: guests || [],
+        theme,
+        notes,
+        status: 'planned'
+      }
     })
 
-    res.status(201).json({
-      message: 'Movie night created successfully',
-      movieNight
-    })
+    res.status(201).json({ message: 'Movie night created successfully', movieNight })
   } catch (error) {
     console.error('Create movie night error:', error)
     res.status(500).json({ message: 'Server error' })
@@ -52,23 +46,18 @@ router.get('/', protect, async (req: any, res: any) => {
     const { status } = req.query
     const now = new Date()
 
-    let where: any = { hostId: req.user.id }
+    const where: any = { hostId: req.user.id }
+    if (status === 'upcoming') where.date = { gte: now }
+    else if (status === 'past') where.date = { lt: now }
 
-    if (status === 'upcoming') {
-      where.date = { [Op.gte]: now }
-    } else if (status === 'past') {
-      where.date = { [Op.lt]: now }
-    }
-
-    const movieNights = await MovieNight.findAll({
+    const movieNights = await prisma.movieNight.findMany({
       where,
-      include: [{
-        model: Movie,
-        as: 'movies',
-        attributes: ['id', 'title', 'posterUrl', 'rating'],
-        through: { attributes: [] }
-      }],
-      order: [['date', 'ASC'], ['time', 'ASC']]
+      include: {
+        movies: {
+          select: { id: true, title: true, posterUrl: true, rating: true }
+        }
+      },
+      orderBy: [{ date: 'asc' }, { time: 'asc' }]
     })
 
     res.json({ movieNights })
@@ -89,27 +78,31 @@ router.put('/:id', protect, [
 ], async (req: any, res: any) => {
   try {
     const errors = validationResult(req)
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() })
 
     const { id } = req.params
-    const updates = req.body
+    const { title, date, time, guests, theme, notes, status } = req.body
 
-    const movieNight = await MovieNight.findOne({
-      where: { id, hostId: req.user.id }
+    const movieNight = await prisma.movieNight.findFirst({
+      where: { id: parseInt(id), hostId: req.user.id }
     })
 
-    if (!movieNight) {
-      return res.status(404).json({ message: 'Movie night not found' })
-    }
+    if (!movieNight) return res.status(404).json({ message: 'Movie night not found' })
 
-    await movieNight.update(updates)
-
-    res.json({
-      message: 'Movie night updated successfully',
-      movieNight
+    const updated = await prisma.movieNight.update({
+      where: { id: parseInt(id) },
+      data: {
+        ...(title && { title }),
+        ...(date && { date: new Date(date) }),
+        ...(time && { time }),
+        ...(guests && { guests }),
+        ...(theme !== undefined && { theme }),
+        ...(notes !== undefined && { notes }),
+        ...(status && { status })
+      }
     })
+
+    res.json({ message: 'Movie night updated successfully', movieNight: updated })
   } catch (error) {
     console.error('Update movie night error:', error)
     res.status(500).json({ message: 'Server error' })
@@ -121,19 +114,15 @@ router.delete('/:id', protect, async (req: any, res: any) => {
   try {
     const { id } = req.params
 
-    const movieNight = await MovieNight.findOne({
-      where: { id, hostId: req.user.id }
+    const movieNight = await prisma.movieNight.findFirst({
+      where: { id: parseInt(id), hostId: req.user.id }
     })
 
-    if (!movieNight) {
-      return res.status(404).json({ message: 'Movie night not found' })
-    }
+    if (!movieNight) return res.status(404).json({ message: 'Movie night not found' })
 
-    await movieNight.destroy()
+    await prisma.movieNight.delete({ where: { id: parseInt(id) } })
 
-    res.json({
-      message: 'Movie night deleted successfully'
-    })
+    res.json({ message: 'Movie night deleted successfully' })
   } catch (error) {
     console.error('Delete movie night error:', error)
     res.status(500).json({ message: 'Server error' })
@@ -146,37 +135,32 @@ router.post('/:id/movies', protect, [
 ], async (req: any, res: any) => {
   try {
     const errors = validationResult(req)
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() })
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() })
 
     const { id } = req.params
     const { movieIds } = req.body
 
-    const movieNight = await MovieNight.findOne({
-      where: { id, hostId: req.user.id }
+    const movieNight = await prisma.movieNight.findFirst({
+      where: { id: parseInt(id), hostId: req.user.id }
     })
 
-    if (!movieNight) {
-      return res.status(404).json({ message: 'Movie night not found' })
-    }
+    if (!movieNight) return res.status(404).json({ message: 'Movie night not found' })
 
-    // Add movies (Sequelize helper for many-to-many)
-    await (movieNight as any).addMovies(movieIds)
-
-    const updatedMovieNight = await MovieNight.findByPk(id, {
-      include: [{
-        model: Movie,
-        as: 'movies',
-        attributes: ['id', 'title', 'posterUrl', 'rating'],
-        through: { attributes: [] }
-      }]
+    const updated = await prisma.movieNight.update({
+      where: { id: parseInt(id) },
+      data: {
+        movies: {
+          connect: movieIds.map((mId: number) => ({ id: mId }))
+        }
+      },
+      include: {
+        movies: {
+          select: { id: true, title: true, posterUrl: true, rating: true }
+        }
+      }
     })
 
-    res.json({
-      message: 'Movies added to movie night successfully',
-      movieNight: updatedMovieNight
-    })
+    res.json({ message: 'Movies added to movie night successfully', movieNight: updated })
   } catch (error) {
     console.error('Add movies to movie night error:', error)
     res.status(500).json({ message: 'Server error' })

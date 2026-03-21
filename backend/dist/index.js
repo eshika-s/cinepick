@@ -20,31 +20,34 @@ const movies_1 = __importDefault(require("./routes/movies"));
 const recommendations_1 = __importDefault(require("./routes/recommendations"));
 const movieNights_1 = __importDefault(require("./routes/movieNights"));
 const app = (0, express_1.default)();
+// Enable trust proxy for rate limiting behind Render/Vercel load balancers
+app.set('trust proxy', 1);
 // Security middleware
 app.use((0, helmet_1.default)());
 app.use((0, compression_1.default)());
 // CORS configuration
-const allowedOrigins = [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:3003',
-    'http://localhost:3004',
-    'http://localhost:3005',
-    'http://localhost:5173',
-    'http://localhost:5174'
-];
 app.use((0, cors_1.default)({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin)
             return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        const allowedOrigins = [
+            process.env.FRONTEND_URL,
+            'http://localhost:3000',
+            'http://localhost:3001',
+            'http://localhost:3002',
+            'http://localhost:3003',
+            'http://localhost:3004',
+            'http://localhost:3005',
+            'http://localhost:5173',
+            'http://localhost:5174'
+        ].filter(Boolean);
+        // Check exact matches or vercel preview domains
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com')) {
             callback(null, true);
         }
         else {
-            callback(new Error('Not allowed by CORS'));
+            callback(new Error(`Not allowed by CORS: ${origin}`));
         }
     },
     credentials: true

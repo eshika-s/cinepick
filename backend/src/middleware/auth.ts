@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { Request, Response, NextFunction } from 'express'
-import { User } from '../models/User'
+import prisma from '../config/database'
 
 export interface AuthRequest extends Request {
   user?: any
@@ -36,7 +36,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-    const user = await User.findByPk(decoded.userId)
+    const user = await prisma.user.findUnique({ where: { id: parseInt(decoded.userId) } })
 
     if (!user) {
       return res.status(401).json({ message: 'Invalid token. User not found.' })
