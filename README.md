@@ -163,24 +163,24 @@ cinepick/
 - `DELETE /api/recommendations/watchlist/:movieId` - Remove from watchlist
 - `POST /api/recommendations/like/:movieId` - Like movie
 
-## 🎨 Features in Detail
+## Features in Detail
 
-### 🎭 Mood Picker
+### Mood Picker
 - **6 Mood Categories:** Happy, Thriller, Cozy, Mind-Bending, Romantic, Epic
 - **Smart Recommendations:** Movies selected based on mood keywords
 - **Learning System:** Improves suggestions based on user preferences
 
-### 🎲 Movie Discovery
+### Movie Discovery
 - **Roulette Interface:** Fun, gamified movie discovery
 - **Random Selection:** Discover hidden gems
 - **Quick Actions:** Like, add to watchlist, or spin again
 
-### 📅 Movie Night Planner
+### Movie Night Planner
 - **Social Planning:** Plan movie nights with friends
 - **Voting System:** Vote on movie selections
 - **Scheduling:** Set dates and times for movie nights
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 ```env
@@ -204,7 +204,7 @@ PORT=5000
 FRONTEND_URL=http://localhost:3005
 ```
 
-## 🚀 Deployment
+## Deployment
 
 ### Frontend (Vercel/Netlify)
 ```bash
@@ -218,7 +218,7 @@ npm run build
 # Start with: npm start
 ```
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -226,26 +226,26 @@ npm run build
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **TMDB** - For providing the movie database API
 - **Material-UI** - For the beautiful React components
 - **MySQL / PlanetScale** - For relation database processing and hosting
 
-## 📬 Connect With Me
+## Connect With Me
 
-**Made with ❤️ by [Eshika Shukla](https://github.com/eshika-s)**
+**Made by [Eshika Shukla](https://github.com/eshika-s)**
 
-- 📧 [Email](mailto:eshika081@gmail.com)
-- 💼 [LinkedIn](https://www.linkedin.com/in/eshika-shukla-608440331)
-- 🐙 [GitHub](https://github.com/eshika-s)
+- [Email](mailto:eshika081@gmail.com)
+- [LinkedIn](https://www.linkedin.com/in/eshika-shukla-608440331)
+- [GitHub](https://github.com/eshika-s)
 
 ---
 
-⭐ **If you like this project, please give it a star!** ⭐
+**If you like this project, please give it a star!** ⭐
 
 
