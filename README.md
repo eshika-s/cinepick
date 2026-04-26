@@ -1,29 +1,29 @@
-# 🎬 Cinepick
+# Cinepick
 
-🎬 **Intelligent Movie Recommendation App** - Discover your next favorite movie with mood-based suggestions, personalized recommendations, and social features!
+**Intelligent Movie Recommendation App** - Discover your next favorite movie with mood-based suggestions, personalized recommendations, and social features!
 
-## ✨ Features
+## Features
 
-### 🎯 Core Features
-- **🎭 Mood-Based Recommendations** - Get movies based on your current mood
-- **📚 Watchlist Management** - Add/remove movies from your personal watchlist
-- **❤️ Like System** - Like/dislike movies to improve recommendations
-- **🔍 Smart Search** - Search movies by title, genre, or mood
-- **🎲 Movie Discovery** - Roulette-style movie discovery
-- **📅 Movie Night Planner** - Plan movie nights with friends
+### Core Features
+- **Mood-Based Recommendations** - Get movies based on your current mood
+- **Watchlist Management** - Add/remove movies from your personal watchlist
+- **Like System** - Like/dislike movies to improve recommendations
+- **Smart Search** - Search movies by title, genre, or mood
+- **Movie Discovery** - Roulette-style movie discovery
+- **Movie Night Planner** - Plan movie nights with friends
 
-### 🛡️ Authentication & Social
-- **🔐 Google OAuth** - Secure authentication with Google
-- **👤 User Profiles** - Personalized experience for each user
-- **📊 User Stats** - Track your movie preferences and history
+### Authentication & Social
+- **Google OAuth** - Secure authentication with Google
+- **User Profiles** - Personalized experience for each user
+- **User Stats** - Track your movie preferences and history
 
-### 🎨 User Experience
-- **📱 Responsive Design** - Works perfectly on all devices
-- **🌙 Dark Theme** - Beautiful Netflix-inspired dark theme
-- **⚡ Fast Performance** - Optimized for speed and smooth interactions
-- **🎬 Beautiful UI** - Modern Material-UI components with smooth animations
+### User Experience
+- **Responsive Design** - Works perfectly on all devices
+- **Dark Theme** - Beautiful Netflix-inspired dark theme
+- **Fast Performance** - Optimized for speed and smooth interactions
+- **Beautiful UI** - Modern Material-UI components with smooth animations
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js 16+ 
